@@ -25,6 +25,9 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        maven {
+            url = uri("https://maven.maxhenkel.de/repository/public")
+        }
     }
 }
 

@@ -12,11 +12,11 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.protobuf.*
 import kotlinx.serialization.*
 import java.net.BindException
-import javax.sound.sampled.AudioSystem
-import javax.sound.sampled.DataLine
-import javax.sound.sampled.SourceDataLine
-import kotlin.math.abs
-import kotlin.math.sqrt
+import javax.sound.sampled.*
+import kotlin.math.*
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import de.maxhenkel.rnnoise4j.Denoiser
 
 @OptIn(ExperimentalSerializationApi::class)
 actual class AudioEngine actual constructor() {
@@ -52,6 +52,10 @@ actual class AudioEngine actual constructor() {
     
     // Internal Audio Processing State
     private var agcEnvelope: Float = 0f
+    
+    // RNNoise instances
+    private var denoiserLeft: Denoiser? = null
+    private var denoiserRight: Denoiser? = null
 
     actual val installProgress: Flow<String?> = VBCableManager.installProgress
     
@@ -228,7 +232,7 @@ actual class AudioEngine actual constructor() {
                     }
                     
                     // Process Audio
-                    val processedBuffer = processAudio(packet.buffer, packet.audioFormat)
+                    val processedBuffer = processAudio(packet.buffer, packet.audioFormat, packet.channelCount)
                     
                     if (processedBuffer != null) {
                         if (!isUsingCable && !isMonitoring) {
@@ -249,13 +253,23 @@ actual class AudioEngine actual constructor() {
                 }
             }
         } finally {
-            monitoringLine?.drain()
-            monitoringLine?.close()
-            monitoringLine = null
-        }
+                        monitoringLine?.drain()
+                        monitoringLine?.close()
+                        monitoringLine = null
+                        
+                        // Close denoisers
+                        try {
+                            denoiserLeft?.close()
+                            denoiserLeft = null
+                            denoiserRight?.close()
+                            denoiserRight = null
+                        } catch (e: Exception) {
+                            println("Error closing denoisers: ${e.message}")
+                        }
+                    }
     }
     
-    private fun processAudio(buffer: ByteArray, format: Int): ByteArray? {
+    private fun processAudio(buffer: ByteArray, format: Int, channelCount: Int): ByteArray? {
         // Convert to ShortArray for processing
         val shorts: ShortArray
         
@@ -346,12 +360,43 @@ actual class AudioEngine actual constructor() {
             }
         }
         
-        // 4. Noise Reduction (Placeholder for user requested types)
+        // 4. Noise Reduction
         if (enableNS) {
-             if (nsType != NoiseReductionType.None) {
-                 // Placeholder: Do nothing for now to preserve quality.
-                 // The previous simple low-pass filter was too aggressive and muffled the sound.
-                 // TODO: Implement real RNNoise or Speexdsp
+             if (nsType == NoiseReductionType.RNNoise) {
+                 try {
+                     // Init denoisers if needed
+                     if (denoiserLeft == null) denoiserLeft = Denoiser()
+                     if (channelCount == 2 && denoiserRight == null) denoiserRight = Denoiser()
+                     
+                     if (channelCount == 1) {
+                         // Mono
+                         val processed = denoiserLeft?.denoise(shorts)
+                         if (processed != null) {
+                             System.arraycopy(processed, 0, shorts, 0, min(shorts.size, processed.size))
+                         }
+                     } else if (channelCount == 2) {
+                         // Stereo: Split -> Process -> Merge
+                         val len = shorts.size / 2
+                         val left = ShortArray(len)
+                         val right = ShortArray(len)
+                         
+                         for (i in 0 until len) {
+                             left[i] = shorts[i * 2]
+                             right[i] = shorts[i * 2 + 1]
+                         }
+                         
+                         val processedLeft = denoiserLeft?.denoise(left) ?: left
+                         val processedRight = denoiserRight?.denoise(right) ?: right
+                         
+                         for (i in 0 until len) {
+                             shorts[i * 2] = processedLeft[i]
+                             shorts[i * 2 + 1] = processedRight[i]
+                         }
+                     }
+                 } catch (e: Exception) {
+                     println("RNNoise error: ${e.message}")
+                     // Fallback or ignore
+                 }
              }
         }
         
