@@ -12,7 +12,11 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.protobuf.*
 import kotlinx.serialization.*
 import java.net.BindException
-import javax.sound.sampled.*
+import javax.sound.sampled.AudioSystem
+import javax.sound.sampled.DataLine
+import javax.sound.sampled.SourceDataLine
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 @OptIn(ExperimentalSerializationApi::class)
 actual class AudioEngine actual constructor() {
@@ -34,11 +38,46 @@ actual class AudioEngine actual constructor() {
     
     @Volatile
     private var isMonitoring = false
+    
+    // Config State
+    @Volatile private var enableNS: Boolean = false
+    @Volatile private var nsType: NoiseReductionType = NoiseReductionType.RNNoise
+    @Volatile private var enableAGC: Boolean = false
+    @Volatile private var agcTargetLevel: Int = 32000
+    @Volatile private var enableVAD: Boolean = false
+    @Volatile private var vadThreshold: Int = 10
+    @Volatile private var enableDereverb: Boolean = false
+    @Volatile private var dereverbLevel: Float = 0.5f
+    @Volatile private var amplification: Float = 1.0f
 
     actual val installProgress: Flow<String?> = VBCableManager.installProgress
     
     actual suspend fun installDriver() {
         VBCableManager.installVBCable()
+    }
+    
+    actual fun updateConfig(
+        enableNS: Boolean,
+        nsType: NoiseReductionType,
+        enableAGC: Boolean,
+        agcTargetLevel: Int,
+        enableVAD: Boolean,
+        vadThreshold: Int,
+        enableDereverb: Boolean,
+        dereverbLevel: Float,
+        amplification: Float
+    ) {
+        this.enableNS = enableNS
+        this.nsType = nsType
+        this.enableAGC = enableAGC
+        this.agcTargetLevel = agcTargetLevel
+        this.enableVAD = enableVAD
+        this.vadThreshold = vadThreshold
+        this.enableDereverb = enableDereverb
+        this.dereverbLevel = dereverbLevel
+        this.amplification = amplification
+        
+        println("Config Updated: Amp=$amplification, VAD=$enableVAD ($vadThreshold), AGC=$enableAGC ($agcTargetLevel), NS=$enableNS ($nsType)")
     }
 
     actual suspend fun start(
@@ -63,13 +102,9 @@ actual class AudioEngine actual constructor() {
                     val selectorManager = SelectorManager(Dispatchers.IO)
                     
                     try {
-                        // Bind to all interfaces (0.0.0.0) by omitting hostname, or explicitly use "0.0.0.0"
-                        // Using 'ip' parameter here is risky if the user sets an IP that isn't a local interface.
-                        // For a server receiving connections, 0.0.0.0 is usually desired.
                         serverSocket = aSocket(selectorManager).tcp().bind(port = port)
                         val msg = "监听端口 $port"
                         println(msg)
-                        // 可以选择是否显示监听成功信息，这里暂不视为错误
                         
                         while (isActive) {
                             val socket = serverSocket?.accept() ?: break
@@ -133,10 +168,8 @@ actual class AudioEngine actual constructor() {
         try {
             val lengthBytes = ByteArray(4)
             while (currentCoroutineContext().isActive) {
-                // 读取长度 (4字节)
                 input.readFully(lengthBytes, 0, lengthBytes.size)
                 
-                // 大端序
                 val length = ((lengthBytes[0].toInt() and 0xFF) shl 24) or
                              ((lengthBytes[1].toInt() and 0xFF) shl 16) or
                              ((lengthBytes[2].toInt() and 0xFF) shl 8) or
@@ -144,16 +177,14 @@ actual class AudioEngine actual constructor() {
 
                 if (length <= 0) continue
                 
-                // 读取数据包
                 val packetBytes = ByteArray(length)
                 input.readFully(packetBytes, 0, packetBytes.size)
                 
                 try {
                     val packet: AudioPacketMessage = proto.decodeFromByteArray(AudioPacketMessage.serializer(), packetBytes)
                     
-                    // 设置音频输出
                     if (monitoringLine == null) {
-                        val audioFormat = AudioFormat(
+                        val audioFormat = javax.sound.sampled.AudioFormat(
                             packet.sampleRate.toFloat(),
                             16,
                             packet.channelCount,
@@ -163,7 +194,6 @@ actual class AudioEngine actual constructor() {
                         
                         val info = DataLine.Info(SourceDataLine::class.java, audioFormat)
                         
-                        // Try to find "CABLE Input" mixer that supports SourceDataLine
                         val mixers = AudioSystem.getMixerInfo()
                         val cableMixerInfo = mixers
                             .filter { it.name.contains("CABLE Input", ignoreCase = true) }
@@ -191,14 +221,30 @@ actual class AudioEngine actual constructor() {
                         monitoringLine?.start()
                     }
                     
-                    // Always write if using Cable (virtual mic), otherwise respect monitoring setting
-                    if (isUsingCable || isMonitoring) {
-                        monitoringLine?.write(packet.buffer, 0, packet.buffer.size)
+                    // Process Audio
+                    val processedBuffer = processAudio(packet.buffer)
+                    
+                    if (processedBuffer != null) {
+                        if (!isUsingCable && !isMonitoring) {
+                            // If not using cable and not monitoring, write silence to keep the line active
+                            // and prevent buffer underflow/looping glitches.
+                            processedBuffer.fill(0.toByte())
+                        }
+                        
+                        monitoringLine?.write(processedBuffer, 0, processedBuffer.size)
+                        
+                        // Calculate levels (post-process)
+                        val rms = calculateRMS(processedBuffer)
+                        _audioLevels.value = rms
+                    } else {
+                        // VAD Silence (should not happen with current processAudio logic, but safe fallback)
+                        _audioLevels.value = 0f
+                        
+                        // Write silence to maintain stream continuity
+                        val silence = ByteArray(packet.buffer.size)
+                        monitoringLine?.write(silence, 0, silence.size)
                     }
                     
-                    // Calculate levels
-                    val rms = calculateRMS(packet.buffer)
-                    _audioLevels.value = rms
                 } catch (e: Exception) {
                     println("Packet decode error: ${e.message}")
                 }
@@ -210,6 +256,91 @@ actual class AudioEngine actual constructor() {
         }
     }
     
+    private fun processAudio(buffer: ByteArray): ByteArray? {
+        // Convert to ShortArray for processing
+        val shorts = ShortArray(buffer.size / 2)
+        for (i in shorts.indices) {
+            shorts[i] = ((buffer[i * 2 + 1].toInt() shl 8) or (buffer[i * 2].toInt() and 0xFF)).toShort()
+        }
+        
+        // 1. VAD (Simple RMS Gate)
+        if (enableVAD) {
+             var sum = 0.0
+             for (s in shorts) {
+                 sum += s * s
+             }
+             val rms = sqrt(sum / shorts.size)
+             // Threshold is 0-100, we map it to 0-5000 RMS roughly.
+             val thresholdRMS = vadThreshold * 50.0
+             if (rms < thresholdRMS) {
+                 // Return silence buffer to maintain stream continuity and prevent underruns
+                 return ByteArray(buffer.size)
+             }
+        }
+        
+        // 2. Amplification
+        if (amplification != 1.0f) {
+            for (i in shorts.indices) {
+                var s = (shorts[i] * amplification).toInt()
+                if (s > 32767) s = 32767
+                if (s < -32768) s = -32768
+                shorts[i] = s.toShort()
+            }
+        }
+        
+        // 3. AGC (Simple Peak Normalization towards target)
+        if (enableAGC) {
+            var peak = 0
+            for (s in shorts) {
+                val absS = abs(s.toInt())
+                if (absS > peak) peak = absS
+            }
+            
+            if (peak > 0) {
+                val target = agcTargetLevel
+                if (peak > 100) { // Noise floor check
+                     val gain = target.toFloat() / peak.toFloat()
+                     val clampedGain = gain.coerceIn(0.1f, 10.0f) 
+                     
+                     for (i in shorts.indices) {
+                         var s = (shorts[i] * clampedGain).toInt()
+                         if (s > 32767) s = 32767
+                         if (s < -32768) s = -32768
+                         shorts[i] = s.toShort()
+                     }
+                }
+            }
+        }
+        
+        // 4. Noise Reduction (Placeholder for user requested types)
+        if (enableNS) {
+             if (nsType != NoiseReductionType.None) {
+                 // Simple low pass filter as placeholder
+                 var prev = 0
+                 for (i in shorts.indices) {
+                     val s = shorts[i]
+                     val filtered = (s + prev) / 2
+                     shorts[i] = filtered.toShort()
+                     prev = s.toInt()
+                 }
+             }
+        }
+        
+        // 5. Dereverb (Placeholder)
+        if (enableDereverb) {
+             // Pass through
+        }
+
+        // Convert back to ByteArray
+        val outBuffer = ByteArray(buffer.size)
+        for (i in shorts.indices) {
+            val s = shorts[i].toInt()
+            outBuffer[i * 2] = (s and 0xFF).toByte()
+            outBuffer[i * 2 + 1] = ((s shr 8) and 0xFF).toByte()
+        }
+        return outBuffer
+    }
+    
     private fun calculateRMS(buffer: ByteArray): Float {
         var sum = 0.0
         for (i in 0 until buffer.size step 2) {
@@ -218,7 +349,7 @@ actual class AudioEngine actual constructor() {
              sum += sample * sample
         }
         val mean = sum / (buffer.size / 2)
-        val root = kotlin.math.sqrt(mean)
+        val root = sqrt(mean)
         return (root / 32768.0).toFloat().coerceIn(0f, 1f)
     }
 
@@ -239,16 +370,7 @@ actual class AudioEngine actual constructor() {
 
     actual fun setMonitoring(enabled: Boolean) {
         this.isMonitoring = enabled
-        // If we are currently streaming and monitoring is toggled, we might need to start/stop the line
-        // But the main loop handles writing to monitoringLine if it exists.
-        // We can just rely on the loop to pick it up or re-initialize if needed.
-        // For simplicity, let's just update the flag. The loop will check the flag or we can init/deinit there.
-        // Ideally we should init/deinit immediately.
-        
-        if (!enabled) {
-             monitoringLine?.stop()
-             monitoringLine?.close()
-             monitoringLine = null
-        }
+        // Do not close the line here, as it might be needed for VB-Cable or re-enabled later.
+        // Closing it causes glitches or forces a re-open cycle in the loop.
     }
 }

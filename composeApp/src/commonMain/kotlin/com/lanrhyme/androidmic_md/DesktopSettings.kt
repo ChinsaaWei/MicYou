@@ -170,23 +170,153 @@ fun DesktopSettings(
 
             item { HorizontalDivider() }
             
-            // 监听设置
-            item {
-                Text("监听设置", style = MaterialTheme.typography.titleMedium)
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { viewModel.setMonitoringEnabled(!state.monitoringEnabled) },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("监听设备 (播放收到的声音)", modifier = Modifier.weight(1f))
-                    Switch(
-                        checked = state.monitoringEnabled,
-                        onCheckedChange = { viewModel.setMonitoringEnabled(it) }
-                    )
+            // 音频处理 (仅桌面端)
+            if (getPlatform().type == PlatformType.Desktop) {
+                item {
+                    Text("音频处理", style = MaterialTheme.typography.titleMedium)
+                }
+
+                // 降噪
+                item {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { viewModel.setEnableNS(!state.enableNS) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("降噪 (Noise Suppression)", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Switch(
+                                checked = state.enableNS,
+                                onCheckedChange = { viewModel.setEnableNS(it) }
+                            )
+                        }
+                        if (state.enableNS) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 16.dp)) {
+                                NoiseReductionType.entries.filter { it != NoiseReductionType.None }.forEach { type ->
+                                    FilterChip(
+                                        selected = state.nsType == type,
+                                        onClick = { viewModel.setNsType(type) },
+                                        label = { Text(type.label) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 增益控制
+                item {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { viewModel.setEnableAGC(!state.enableAGC) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("自动增益控制 (AGC)", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Switch(
+                                checked = state.enableAGC,
+                                onCheckedChange = { viewModel.setEnableAGC(it) }
+                            )
+                        }
+                        if (state.enableAGC) {
+                            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp)) {
+                                Text("目标电平: ${state.agcTargetLevel}", style = MaterialTheme.typography.bodySmall)
+                                Slider(
+                                    value = state.agcTargetLevel.toFloat(),
+                                    onValueChange = { viewModel.setAgcTargetLevel(it.toInt()) },
+                                    valueRange = 8000f..65535f
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 语音活动检测
+                item {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { viewModel.setEnableVAD(!state.enableVAD) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("语音活动检测 (VAD)", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Switch(
+                                checked = state.enableVAD,
+                                onCheckedChange = { viewModel.setEnableVAD(it) }
+                            )
+                        }
+                        if (state.enableVAD) {
+                            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp)) {
+                                Text("阈值: ${state.vadThreshold}", style = MaterialTheme.typography.bodySmall)
+                                Slider(
+                                    value = state.vadThreshold.toFloat(),
+                                    onValueChange = { viewModel.setVadThreshold(it.toInt()) },
+                                    valueRange = 0f..100f
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 去混响
+                item {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { viewModel.setEnableDereverb(!state.enableDereverb) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("去混响 (Dereverb)", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            Switch(
+                                checked = state.enableDereverb,
+                                onCheckedChange = { viewModel.setEnableDereverb(it) }
+                            )
+                        }
+                        if (state.enableDereverb) {
+                            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp)) {
+                                Text("强度: ${((state.dereverbLevel * 100).toInt()) / 100f}", style = MaterialTheme.typography.bodySmall)
+                                Slider(
+                                    value = state.dereverbLevel,
+                                    onValueChange = { viewModel.setDereverbLevel(it) },
+                                    valueRange = 0.0f..1.0f
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 放大
+                item {
+                    Column {
+                        Text("信号放大 (Amplification)", style = MaterialTheme.typography.bodyMedium)
+                        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp)) {
+                            Text("倍数: ${((state.amplification * 10).toInt()) / 10f}x", style = MaterialTheme.typography.bodySmall)
+                            Slider(
+                                value = state.amplification,
+                                onValueChange = { viewModel.setAmplification(it) },
+                                valueRange = 0.0f..10.0f
+                            )
+                        }
+                    }
                 }
             }
 
             item { HorizontalDivider() }
+            
+            // 监听设置 (仅桌面端)
+            if (getPlatform().type == PlatformType.Desktop) {
+                item {
+                    Text("监听设置", style = MaterialTheme.typography.titleMedium)
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { viewModel.setMonitoringEnabled(!state.monitoringEnabled) },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("监听设备 (播放收到的声音)", modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = state.monitoringEnabled,
+                            onCheckedChange = { viewModel.setMonitoringEnabled(it) }
+                        )
+                    }
+                }
+                item { HorizontalDivider() }
+            }
             
             // System Actions (Only on Desktop)
             if (getPlatform().type == PlatformType.Desktop) {

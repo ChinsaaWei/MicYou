@@ -20,6 +20,20 @@ expect class AudioEngine() {
         channelCount: ChannelCount,
         audioFormat: AudioFormat
     )
+    
+    // 更新音频处理配置
+    fun updateConfig(
+        enableNS: Boolean,
+        nsType: NoiseReductionType,
+        enableAGC: Boolean,
+        agcTargetLevel: Int,
+        enableVAD: Boolean,
+        vadThreshold: Int,
+        enableDereverb: Boolean,
+        dereverbLevel: Float,
+        amplification: Float
+    )
+
     // 停止音频引擎
     fun stop()
     // 设置是否启用本地监听（仅桌面端有效）

@@ -7,6 +7,10 @@ interface Settings {
     fun putLong(key: String, value: Long)
     fun getBoolean(key: String, defaultValue: Boolean): Boolean
     fun putBoolean(key: String, value: Boolean)
+    fun getInt(key: String, defaultValue: Int): Int
+    fun putInt(key: String, value: Int)
+    fun getFloat(key: String, defaultValue: Float): Float
+    fun putFloat(key: String, value: Float)
 }
 
 expect object SettingsFactory {

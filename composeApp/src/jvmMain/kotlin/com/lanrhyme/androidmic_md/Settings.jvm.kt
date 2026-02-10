@@ -32,4 +32,20 @@ class JvmSettings : Settings {
     override fun putBoolean(key: String, value: Boolean) {
         prefs.putBoolean(key, value)
     }
+
+    override fun getInt(key: String, defaultValue: Int): Int {
+        return prefs.getInt(key, defaultValue)
+    }
+
+    override fun putInt(key: String, value: Int) {
+        prefs.putInt(key, value)
+    }
+
+    override fun getFloat(key: String, defaultValue: Float): Float {
+        return prefs.getFloat(key, defaultValue)
+    }
+
+    override fun putFloat(key: String, value: Float) {
+        prefs.putFloat(key, value)
+    }
 }

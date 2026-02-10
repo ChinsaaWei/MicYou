@@ -45,4 +45,20 @@ class AndroidSettings(context: Context) : Settings {
     override fun putBoolean(key: String, value: Boolean) {
         prefs.edit().putBoolean(key, value).apply()
     }
+
+    override fun getInt(key: String, defaultValue: Int): Int {
+        return prefs.getInt(key, defaultValue)
+    }
+
+    override fun putInt(key: String, value: Int) {
+        prefs.edit().putInt(key, value).apply()
+    }
+
+    override fun getFloat(key: String, defaultValue: Float): Float {
+        return prefs.getFloat(key, defaultValue)
+    }
+
+    override fun putFloat(key: String, value: Float) {
+        prefs.edit().putFloat(key, value).apply()
+    }
 }

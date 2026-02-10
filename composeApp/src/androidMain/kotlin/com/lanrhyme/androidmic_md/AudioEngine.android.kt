@@ -16,9 +16,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.protobuf.*
 
-import android.media.audiofx.NoiseSuppressor
-import android.media.audiofx.AcousticEchoCanceler
-
 actual class AudioEngine actual constructor() {
     private val _state = MutableStateFlow(StreamState.Idle)
     actual val streamState: Flow<StreamState> = _state
@@ -54,8 +51,6 @@ actual class AudioEngine actual constructor() {
                 CoroutineScope(Dispatchers.IO).launch {
                     var socket: Socket? = null
                     var recorder: AudioRecord? = null
-                    var noiseSuppressor: NoiseSuppressor? = null
-                    var echoCanceler: AcousticEchoCanceler? = null
                     
                     try {
                         // 音频设置
@@ -97,53 +92,11 @@ actual class AudioEngine actual constructor() {
                             return@launch
                         }
                         
-                        // 尝试启用降噪和回声消除
-                        if (NoiseSuppressor.isAvailable()) {
-                            try {
-                                noiseSuppressor = NoiseSuppressor.create(recorder.audioSessionId)
-                                noiseSuppressor?.enabled = true
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                        
-                        if (AcousticEchoCanceler.isAvailable()) {
-                            try {
-                                echoCanceler = AcousticEchoCanceler.create(recorder.audioSessionId)
-                                echoCanceler?.enabled = true
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-
                         // 网络设置
                         val selectorManager = SelectorManager(Dispatchers.IO)
                         val socketBuilder = aSocket(selectorManager)
                         
                         if (mode == ConnectionMode.WifiUdp) {
-                            // UDP Not implemented yet for streaming in this simplified engine
-                            // But for now, let's fallback to TCP or implement UDP basic
-                            // Since UDP requires different packet handling (no connection stream), 
-                            // we'll stick to TCP for now but warn user or TODO
-                            // Actually, let's just use TCP for "UDP" placeholder if implementing full UDP is too complex
-                            // BUT user asked for UDP.
-                            // Ktor UDP: socket = aSocket(selectorManager).udp().connect(remoteAddress)
-                            // But audio streaming over UDP needs a different loop (send datagrams)
-                            
-                            // Let's implement basic UDP sending
-                            // val udpSocket = socketBuilder.udp().connect(InetSocketAddress(ip, port))
-                            // socket = udpSocket
-                            
-                            // UDP doesn't have openWriteChannel in the same way for streams
-                            // We need to write datagrams.
-                            // This architecture relies on `output.writeFully` which is ByteWriteChannel (Stream).
-                            // Refactoring for UDP requires significant changes to the loop.
-                            
-                            // For this task, let's assume we can wrap UDP in a channel or handle it separately.
-                            // However, `socket` variable is type `Socket`. UDP socket is `BoundDatagramSocket` or `ConnectedDatagramSocket`.
-                            // They don't share a common "Stream" interface easily usable here without adaptation.
-                            
-                            // To properly support UDP, we should branch here.
                              throw UnsupportedOperationException("UDP Not fully implemented yet")
                         } else {
                             socket = socketBuilder.tcp().connect(ip, port)
@@ -179,6 +132,10 @@ actual class AudioEngine actual constructor() {
                             if (readBytes > 0) {
                                 val audioData = buffer.copyOfRange(0, readBytes)
                                 
+                                // 计算电平
+                                val rms = calculateRMS(audioData)
+                                _audioLevels.value = rms
+
                                 // 创建数据包
                                 val packet = AudioPacketMessage(
                                     buffer = audioData,
@@ -203,10 +160,6 @@ actual class AudioEngine actual constructor() {
                                 
                                 // 写入数据
                                 output.writeFully(packetBytes)
-                                
-                                // 计算电平
-                                val rms = calculateRMS(audioData)
-                                _audioLevels.value = rms
                             }
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {
@@ -219,8 +172,6 @@ actual class AudioEngine actual constructor() {
                         }
                     } finally {
                         try {
-                            noiseSuppressor?.release()
-                            echoCanceler?.release()
                             recorder?.stop()
                             recorder?.release()
                             socket?.close()
@@ -233,6 +184,20 @@ actual class AudioEngine actual constructor() {
             }
         }
         jobToJoin?.join()
+    }
+    
+    actual fun updateConfig(
+        enableNS: Boolean,
+        nsType: NoiseReductionType,
+        enableAGC: Boolean,
+        agcTargetLevel: Int,
+        enableVAD: Boolean,
+        vadThreshold: Int,
+        enableDereverb: Boolean,
+        dereverbLevel: Float,
+        amplification: Float
+    ) {
+        // Android 端无需处理，功能仅存在于桌面端
     }
     
     private fun calculateRMS(buffer: ByteArray): Float {
