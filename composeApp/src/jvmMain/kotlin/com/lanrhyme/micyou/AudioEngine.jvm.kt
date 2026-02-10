@@ -68,13 +68,13 @@ actual class AudioEngine actual constructor() {
     private var isUsingCable = false
     private var selectorManager: SelectorManager? = null
     
-    // Channel for outgoing messages (Control)
+    // 发送消息的通道（控制）
     private var sendChannel: Channel<MessageWrapper>? = null
     
     @Volatile
     private var isMonitoring = false
     
-    // Config State
+    // 配置状态
     @Volatile private var enableNS: Boolean = false
     @Volatile private var nsType: NoiseReductionType = NoiseReductionType.RNNoise
     @Volatile private var enableAGC: Boolean = false
@@ -85,10 +85,10 @@ actual class AudioEngine actual constructor() {
     @Volatile private var dereverbLevel: Float = 0.5f
     @Volatile private var amplification: Float = 10.0f
     
-    // Internal Audio Processing State
+    // 内部音频处理状态
     private var agcEnvelope: Float = 0f
     
-    // RNNoise instances
+    // RNNoise 实例
     private var denoiserLeft: Denoiser? = null
     private var denoiserRight: Denoiser? = null
 
@@ -119,7 +119,7 @@ actual class AudioEngine actual constructor() {
         this.dereverbLevel = dereverbLevel
         this.amplification = amplification
         
-        println("Config Updated: Amp=$amplification, VAD=$enableVAD ($vadThreshold), AGC=$enableAGC ($agcTargetLevel), NS=$enableNS ($nsType)")
+        println("配置已更新: Amp=$amplification, VAD=$enableVAD ($vadThreshold), AGC=$enableAGC ($agcTargetLevel), NS=$enableNS ($nsType)")
     }
 
     actual suspend fun start(
@@ -442,33 +442,33 @@ actual class AudioEngine actual constructor() {
     }
     
     private fun processAudio(buffer: ByteArray, format: Int, channelCount: Int): ByteArray? {
-        // Convert to ShortArray for processing
+        // 转换为 ShortArray 进行处理
         val shorts: ShortArray
         
         when (format) {
-            4, 32 -> { // PCM_FLOAT (32-bit Float)
+            4, 32 -> { // PCM_FLOAT（32 位浮点数）
                 shorts = ShortArray(buffer.size / 4)
                 for (i in shorts.indices) {
                     val byteIndex = i * 4
-                    // Little Endian
+                    // 小端序
                     val bits = (buffer[byteIndex].toInt() and 0xFF) or
                                ((buffer[byteIndex + 1].toInt() and 0xFF) shl 8) or
                                ((buffer[byteIndex + 2].toInt() and 0xFF) shl 16) or
                                ((buffer[byteIndex + 3].toInt() and 0xFF) shl 24)
                     val sample = Float.fromBits(bits)
-                    // Clamp and convert to 16-bit PCM
+                    // 截断并转换为 16 位 PCM
                     shorts[i] = (sample * 32767.0f).toInt().coerceIn(-32768, 32767).toShort()
                 }
             }
-            3, 8 -> { // PCM_8BIT (Unsigned 8-bit)
+            3, 8 -> { // PCM_8BIT（无符号 8 位）
                  shorts = ShortArray(buffer.size)
                  for (i in shorts.indices) {
-                     // 8-bit PCM is usually unsigned 0-255. 128 is 0.
+                     // 8 位 PCM 通常是无符号 0-255，128 为 0
                      val sample = (buffer[i].toInt() and 0xFF) - 128
                      shorts[i] = (sample * 256).toShort()
                  }
             }
-            else -> { // PCM_16BIT (Default)
+            else -> { // PCM_16BIT（默认）
                 shorts = ShortArray(buffer.size / 2)
                 for (i in shorts.indices) {
                      val byteIndex = i * 2

@@ -83,7 +83,7 @@ actual class AudioEngine actual constructor() {
                     var recorder: AudioRecord? = null
                     sendChannel = Channel(Channel.UNLIMITED)
                     
-                    // Connection Abstractions
+                    // 连接抽象
                     var input: ByteReadChannel
                     var output: ByteWriteChannel
                     var closeConnection: () -> Unit = {}
@@ -171,7 +171,7 @@ actual class AudioEngine actual constructor() {
                             closeConnection = { socket.close() }
                         }
 
-                        // Start Foreground Service
+                        // 启动前台服务
                         val context = ContextHelper.getContext()
                         if (context != null) {
                             val intent = Intent(context, AudioService::class.java).apply {
@@ -255,7 +255,7 @@ actual class AudioEngine actual constructor() {
                             }
                         }
                         
-                        // Send initial mute state
+                        // 发送初始静音状态
                         sendChannel?.send(MessageWrapper(mute = MuteMessage(_isMuted.value)))
 
                         val buffer = ByteArray(minBufSize)
@@ -264,10 +264,10 @@ actual class AudioEngine actual constructor() {
                         var sequenceNumber = 0
 
                         while (isActive) {
-                            // Check if writer/reader are still alive
+                            // 检查写入器/读取器是否仍然存活
                             if (writerJob.isCancelled || writerJob.isCompleted) throw Exception("Writer job failed")
-                            // Reader failure is less critical for sending, but indicates connection loss usually.
-
+                            // 读取器失败对发送来说不那么重要，但通常表示连接丢失
+                            
                             var readBytes = 0
                             val audioData: ByteArray
 
@@ -332,7 +332,7 @@ actual class AudioEngine actual constructor() {
                             recorder?.release()
                             closeConnection()
                             
-                            // Stop Foreground Service
+                            // 停止前台服务
                             val context = ContextHelper.getContext()
                             if (context != null) {
                                 val intent = Intent(context, AudioService::class.java).apply {
@@ -370,7 +370,7 @@ actual class AudioEngine actual constructor() {
 
     actual suspend fun setMute(muted: Boolean) {
         _isMuted.value = muted
-        // If connected, send message
+        // 如果已连接，发送消息
         if (_state.value == StreamState.Streaming || _state.value == StreamState.Connecting) {
              try {
                  sendChannel?.send(MessageWrapper(mute = MuteMessage(muted)))

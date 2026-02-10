@@ -17,7 +17,7 @@ object VBCableManager {
     val installProgress = _installProgress.asStateFlow()
 
     fun isVBCableInstalled(): Boolean {
-        // Method 1: Check AudioSystem for "CABLE Output" (Microphone) or "CABLE Input" (Speaker)
+        // 方法 1：检查 AudioSystem 中是否有 "CABLE Output"（麦克风）或 "CABLE Input"（扬声器）
         val mixers = AudioSystem.getMixerInfo()
         return mixers.any { it.name.contains(CABLE_OUTPUT_NAME, ignoreCase = true) || it.name.contains(CABLE_INPUT_NAME, ignoreCase = true) }
     }
@@ -31,7 +31,7 @@ object VBCableManager {
         
         _installProgress.value = "正在检查安装包..."
 
-        // 1. Extract installer from resources or download it
+        // 1. 从资源中提取安装程序或下载它
         var installerFile = extractInstaller()
         
         if (installerFile == null || !installerFile.exists()) {
@@ -52,9 +52,9 @@ object VBCableManager {
         _installProgress.value = "正在安装 VB-Cable 驱动..."
         
         try {
-            // 2. Run installer silently using PowerShell Start-Process with RunAs (Admin)
-            // Use -Wait to wait for completion
-            // Note: We cannot capture stdout/stderr easily from RunAs, but we can check if it finishes
+            // 2. 使用 PowerShell Start-Process 以 RunAs（管理员）静默运行安装程序
+            // 使用 -Wait 等待完成
+            // 注意：我们无法轻易从 RunAs 捕获 stdout/stderr，但我们可以检查它是否完成
             
             val powerShellCommand = "Start-Process -FilePath '${installerFile.absolutePath}' -ArgumentList '-i -h' -Verb RunAs -Wait"
             println("Executing: $powerShellCommand")
@@ -70,14 +70,14 @@ object VBCableManager {
             val output = process.inputStream.bufferedReader().readText()
             val exitCode = process.waitFor()
             
-            // Note: Start-Process -Wait returns when the process exits.
-            // If the user cancels UAC, Start-Process might throw an error or return non-zero in PowerShell.
-            // But ProcessBuilder will likely see 0 unless powershell itself crashes.
-            // We should re-check isVBCableInstalled() to verify success.
+            // 注意：Start-Process -Wait 在进程退出时返回
+            // 如果用户取消 UAC，Start-Process 可能会抛出错误或在 PowerShell 中返回非零值
+            // 但除非 PowerShell 本身崩溃，否则 ProcessBuilder 可能会看到 0
+            // 我们应该重新检查 isVBCableInstalled() 以验证成功
             
             println("PowerShell execution finished. Exit code: $exitCode. Output: $output")
             
-            // Give it a moment to register devices
+            // 等待片刻以注册设备
             kotlinx.coroutines.delay(2000)
             
             if (isVBCableInstalled()) {
@@ -104,7 +104,7 @@ object VBCableManager {
                 ?: this::class.java.classLoader.getResourceAsStream("vbcable/$INSTALLER_NAME")
             
             if (resourceStream == null) {
-                // Try looking in current directory (dev mode)
+                // 尝试在当前目录查找（开发模式）
                 val localFile = File(INSTALLER_NAME)
                 if (localFile.exists()) return localFile
                 return null
@@ -131,7 +131,7 @@ object VBCableManager {
         println("Downloading VB-Cable driver from $downloadUrl...")
         
         try {
-            // Download using simple Java URL connection
+            // 使用简单的 Java URL 连接下载
             val url = java.net.URI(downloadUrl).toURL()
             val connection = url.openConnection()
             connection.connect()
@@ -144,7 +144,7 @@ object VBCableManager {
             
             println("Download complete. Extracting...")
             
-            // Extract zip
+            // 解压 zip
             if (!outputDir.exists()) outputDir.mkdirs()
             
             java.util.zip.ZipFile(zipFile).use { zip ->
@@ -156,7 +156,7 @@ object VBCableManager {
                     if (entry.isDirectory) {
                         entryFile.mkdirs()
                     } else {
-                        // Create parent dirs if needed
+                        // 如果需要，创建父目录
                         entryFile.parentFile?.mkdirs()
                         zip.getInputStream(entry).use { input ->
                             FileOutputStream(entryFile).use { output ->
@@ -167,14 +167,14 @@ object VBCableManager {
                 }
             }
             
-            // Find the setup file
+            // 查找安装文件
             val setupFile = File(outputDir, INSTALLER_NAME)
             if (setupFile.exists()) {
                 println("Found installer at ${setupFile.absolutePath}")
                 return setupFile
             }
             
-            // Try recursive search if not in root
+            // 如果不在根目录，尝试递归搜索
             val found = outputDir.walkTopDown().find { it.name.equals(INSTALLER_NAME, ignoreCase = true) }
             if (found != null) {
                 println("Found installer at ${found.absolutePath}")
@@ -201,7 +201,7 @@ namespace AudioSwitcher {
     using System;
     using System.Runtime.InteropServices;
 
-    // --- COM Interfaces (Simplified for VTable usage) ---
+    // --- COM 接口（简化用于 VTable 使用）---
 
     [StructLayout(LayoutKind.Sequential)]
     public struct PropertyKey {
@@ -219,7 +219,7 @@ namespace AudioSwitcher {
         [FieldOffset(8)] public int iVal;
     }
 
-    // Only keep IPolicyConfig as ComImport because we instantiate it directly
+    // 仅保留 IPolicyConfig 作为 ComImport，因为我们直接实例化它
     [ComImport, Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9")]
     public class PolicyConfigClient { }
 
@@ -240,7 +240,7 @@ namespace AudioSwitcher {
     }
 
     public class AudioHelper {
-        // Delegates for VTable methods
+        // VTable 方法的委托
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private delegate int EnumAudioEndpointsDelegate(IntPtr enumerator, int dataFlow, int state, out IntPtr collection);
 
@@ -271,7 +271,7 @@ namespace AudioSwitcher {
         private static void Release(IntPtr ptr) {
             if (ptr != IntPtr.Zero) {
                 try {
-                    // IUnknown::Release is always slot 2
+                    // IUnknown::Release 总是插槽 2
                     var release = GetMethod<ReleaseDelegate>(ptr, 2);
                     release(ptr);
                 } catch { }
@@ -283,22 +283,22 @@ namespace AudioSwitcher {
             IntPtr collection = IntPtr.Zero;
             
             try {
-                // Create MMDeviceEnumerator
+                // 创建 MMDeviceEnumerator
                 Type enumeratorType = Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"));
                 object enumeratorObj = Activator.CreateInstance(enumeratorType);
                 enumerator = Marshal.GetIUnknownForObject(enumeratorObj);
 
-                // EnumAudioEndpoints (Slot 3)
+                // EnumAudioEndpoints（插槽 3）
                 var enumEndpoints = GetMethod<EnumAudioEndpointsDelegate>(enumerator, 3);
                 int hr = enumEndpoints(enumerator, 1, 1, out collection); // eCapture=1, Active=1
                 if (hr != 0) throw new Exception("EnumAudioEndpoints failed: " + hr);
 
-                // GetCount (Slot 3 of Collection)
+                // GetCount（Collection 的插槽 3）
                 var getCount = GetMethod<GetCountDelegate>(collection, 3);
                 int count;
                 getCount(collection, out count);
 
-                // Prepare Item delegate (Slot 4)
+                // 准备 Item 委托（插槽 4）
                 var getItem = GetMethod<ItemDelegate>(collection, 4);
 
                 Guid PKEY_Device_FriendlyName_FmtId = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0");
@@ -312,11 +312,11 @@ namespace AudioSwitcher {
                     try {
                         getItem(collection, i, out device);
                         
-                        // OpenPropertyStore (Slot 4 of Device)
+                        // OpenPropertyStore（Device 的插槽 4）
                         var openStore = GetMethod<OpenPropertyStoreDelegate>(device, 4);
                         openStore(device, 0, out store); // STGM_READ=0
                         
-                        // GetValue (Slot 5 of Store)
+                        // GetValue（Store 的插槽 5）
                         var getValue = GetMethod<GetValueDelegate>(store, 5);
                         
                         PropertyKey key;
@@ -328,13 +328,13 @@ namespace AudioSwitcher {
                         
                         if (var.vt == 31) { // VT_LPWSTR
                             string name = Marshal.PtrToStringUni(var.pwszVal);
-                            // PropVariantClear not strictly needed for read-only if we don't own the buffer, 
-                            // but for VT_LPWSTR we should be careful. 
-                            // In this simple script we rely on process cleanup mostly, 
-                            // but technically we should clear it if we were doing this in a loop for long time.
+                            // 如果我们要读取且不拥有缓冲区，严格来说不需要 PropVariantClear
+                            // 但对于 VT_LPWSTR 我们应该小心
+                            // 在这个简单的脚本中，我们主要依赖进程清理
+                            // 但从技术上讲，如果我们长时间在循环中执行此操作，我们应该清除它
                             
                             if (name != null && name.Contains("CABLE Output")) {
-                                // GetId (Slot 5 of Device)
+                                // GetId（Device 的插槽 5）
                                 var getId = GetMethod<GetIdDelegate>(device, 5);
                                 getId(device, out idPtr);
                                 string id = Marshal.PtrToStringUni(idPtr);

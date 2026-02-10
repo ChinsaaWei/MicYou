@@ -8,6 +8,10 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import micyou.composeapp.generated.resources.Res
+import micyou.composeapp.generated.resources.app_icon
+import micyou.composeapp.generated.resources.icon
+import org.jetbrains.compose.resources.painterResource
 
 fun main() {
     application {
@@ -28,6 +32,7 @@ fun main() {
         onCloseRequest = ::exitApplication,
         state = windowState,
         title = "MicYou",
+        icon = painterResource(Res.drawable.app_icon),
         undecorated = true,
         transparent = true, // Allows rounded corners via Surface in DesktopHome
         resizable = false
@@ -54,6 +59,7 @@ fun main() {
             onCloseRequest = { isSettingsOpen = false },
             state = settingsState,
             title = "Settings",
+            icon = painterResource(Res.drawable.icon),
             resizable = false
         ) {
             // Re-use theme logic from AppTheme but apply to settings window content
