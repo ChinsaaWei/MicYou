@@ -23,7 +23,8 @@ data class AppUiState(
     val port: String = "6000",
     val errorMessage: String? = null,
     val themeMode: ThemeMode = ThemeMode.System,
-    val seedColor: Long = 0xFF6750A4 // Default purple
+    val seedColor: Long = 0xFF6750A4, // Default purple
+    val monitoringEnabled: Boolean = false
 )
 
 class MainViewModel : ViewModel() {
@@ -121,5 +122,11 @@ class MainViewModel : ViewModel() {
     fun setSeedColor(color: Long) {
         _uiState.update { it.copy(seedColor = color) }
         settings.putLong("seed_color", color)
+    }
+
+    fun setMonitoringEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(monitoringEnabled = enabled) }
+        settings.putBoolean("monitoring_enabled", enabled)
+        audioEngine.setMonitoring(enabled)
     }
 }

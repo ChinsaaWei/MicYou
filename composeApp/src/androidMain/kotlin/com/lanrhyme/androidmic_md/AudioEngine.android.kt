@@ -16,6 +16,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.protobuf.*
 
+import android.media.audiofx.NoiseSuppressor
+import android.media.audiofx.AcousticEchoCanceler
+
 actual class AudioEngine actual constructor() {
     private val _state = MutableStateFlow(StreamState.Idle)
     actual val streamState: Flow<StreamState> = _state
@@ -43,6 +46,8 @@ actual class AudioEngine actual constructor() {
                 CoroutineScope(Dispatchers.IO).launch {
                     var socket: Socket? = null
                     var recorder: AudioRecord? = null
+                    var noiseSuppressor: NoiseSuppressor? = null
+                    var echoCanceler: AcousticEchoCanceler? = null
                     
                     try {
                         // 音频设置
@@ -53,7 +58,7 @@ actual class AudioEngine actual constructor() {
 
                         recorder = try {
                             AudioRecord(
-                                MediaRecorder.AudioSource.MIC,
+                                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                                 sampleRate,
                                 channelConfig,
                                 audioFormat,
@@ -72,6 +77,25 @@ actual class AudioEngine actual constructor() {
                             _state.value = StreamState.Error
                             _lastError.value = msg
                             return@launch
+                        }
+                        
+                        // 尝试启用降噪和回声消除
+                        if (NoiseSuppressor.isAvailable()) {
+                            try {
+                                noiseSuppressor = NoiseSuppressor.create(recorder.audioSessionId)
+                                noiseSuppressor?.enabled = true
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                        
+                        if (AcousticEchoCanceler.isAvailable()) {
+                            try {
+                                echoCanceler = AcousticEchoCanceler.create(recorder.audioSessionId)
+                                echoCanceler?.enabled = true
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         }
 
                         // 网络设置
@@ -143,6 +167,8 @@ actual class AudioEngine actual constructor() {
                         }
                     } finally {
                         try {
+                            noiseSuppressor?.release()
+                            echoCanceler?.release()
                             recorder?.stop()
                             recorder?.release()
                             socket?.close()
@@ -181,5 +207,9 @@ actual class AudioEngine actual constructor() {
                 }
             }
         }
+    }
+
+    actual fun setMonitoring(enabled: Boolean) {
+        // Android端无需实现本地监听
     }
 }

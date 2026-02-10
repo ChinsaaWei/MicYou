@@ -14,4 +14,6 @@ expect class AudioEngine() {
     suspend fun start(ip: String, port: Int, mode: ConnectionMode, isClient: Boolean)
     // 停止音频引擎
     fun stop()
+    // 设置是否启用本地监听（仅桌面端有效）
+    fun setMonitoring(enabled: Boolean)
 }

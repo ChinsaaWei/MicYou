@@ -26,6 +26,13 @@ actual class AudioEngine actual constructor() {
     private val proto = ProtoBuf { }
     private val CHECK_1 = "AndroidMic1"
     private val CHECK_2 = "AndroidMic2"
+    
+    @Volatile
+    private var isMonitoring = false
+
+    actual fun setMonitoring(enabled: Boolean) {
+        isMonitoring = enabled
+    }
 
     actual suspend fun start(ip: String, port: Int, mode: ConnectionMode, isClient: Boolean) {
         if (isClient) return 
@@ -138,7 +145,9 @@ actual class AudioEngine actual constructor() {
                         line?.start()
                     }
                     
-                    line?.write(packet.buffer, 0, packet.buffer.size)
+                    if (isMonitoring) {
+                        line?.write(packet.buffer, 0, packet.buffer.size)
+                    }
                     
                     // 计算音频电平
                     val rms = calculateRMS(packet.buffer)

@@ -81,6 +81,22 @@ fun DesktopSettings(
             
             HorizontalDivider()
             
+            // 音频设置
+            Text("音频设置", style = MaterialTheme.typography.titleMedium)
+            
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { viewModel.setMonitoringEnabled(!state.monitoringEnabled) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("监听设备 (播放收到的声音)", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = state.monitoringEnabled,
+                    onCheckedChange = { viewModel.setMonitoringEnabled(it) }
+                )
+            }
+
+            HorizontalDivider()
+            
             // 端口设置 (Moved to Home Screen, but kept here if needed, or removed to avoid duplication)
             // For now, let's remove it as it is on the Home screen.
             /*
