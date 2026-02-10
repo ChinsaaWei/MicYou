@@ -9,8 +9,9 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 
-fun main() = application {
-    var isSettingsOpen by remember { mutableStateOf(false) }
+fun main() {
+    application {
+        var isSettingsOpen by remember { mutableStateOf(false) }
     
     // Create shared ViewModel instance
     val viewModel = remember { MainViewModel() }
@@ -72,4 +73,5 @@ fun main() = application {
             }
         }
     }
+}
 }

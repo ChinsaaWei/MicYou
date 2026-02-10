@@ -58,6 +58,23 @@ fun DesktopHome(
         visible = true
     }
 
+    if (state.installMessage != null) {
+        AlertDialog(
+            onDismissRequest = { /* Prevent dismissal */ },
+            title = { Text("系统配置中") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Text(state.installMessage ?: "")
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
     Surface(
         color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,

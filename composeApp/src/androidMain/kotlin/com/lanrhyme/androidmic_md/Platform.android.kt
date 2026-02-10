@@ -9,3 +9,7 @@ class AndroidPlatform : Platform {
 }
 
 actual fun getPlatform(): Platform = AndroidPlatform()
+
+actual fun uninstallVBCable() {
+    // No-op on Android
+}

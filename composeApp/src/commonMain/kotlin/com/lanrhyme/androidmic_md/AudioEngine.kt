@@ -24,4 +24,9 @@ expect class AudioEngine() {
     fun stop()
     // 设置是否启用本地监听（仅桌面端有效）
     fun setMonitoring(enabled: Boolean)
+    
+    // 安装驱动进度（仅桌面端有效）
+    val installProgress: Flow<String?>
+    // 安装驱动（仅桌面端有效）
+    suspend fun installDriver()
 }

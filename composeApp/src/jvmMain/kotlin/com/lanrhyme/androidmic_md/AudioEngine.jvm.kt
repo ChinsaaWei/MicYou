@@ -11,6 +11,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.protobuf.*
 import kotlinx.serialization.*
+import java.net.BindException
 import javax.sound.sampled.*
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -29,9 +30,16 @@ actual class AudioEngine actual constructor() {
     
     private var serverSocket: ServerSocket? = null
     private var monitoringLine: SourceDataLine? = null
+    private var isUsingCable = false
     
     @Volatile
     private var isMonitoring = false
+
+    actual val installProgress: Flow<String?> = VBCableManager.installProgress
+    
+    actual suspend fun installDriver() {
+        VBCableManager.installVBCable()
+    }
 
     actual suspend fun start(
         ip: String, 
@@ -55,6 +63,9 @@ actual class AudioEngine actual constructor() {
                     val selectorManager = SelectorManager(Dispatchers.IO)
                     
                     try {
+                        // Bind to all interfaces (0.0.0.0) by omitting hostname, or explicitly use "0.0.0.0"
+                        // Using 'ip' parameter here is risky if the user sets an IP that isn't a local interface.
+                        // For a server receiving connections, 0.0.0.0 is usually desired.
                         serverSocket = aSocket(selectorManager).tcp().bind(port = port)
                         val msg = "监听端口 $port"
                         println(msg)
@@ -78,6 +89,13 @@ actual class AudioEngine actual constructor() {
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
+                    } catch (e: BindException) {
+                        if (isActive) {
+                            val msg = "端口 $port 已被占用。请关闭其他 AndroidMic 实例。"
+                            println(msg)
+                            _state.value = StreamState.Error
+                            _lastError.value = msg
+                        }
                     } catch (e: Exception) {
                         if (isActive) {
                             e.printStackTrace()
@@ -144,16 +162,41 @@ actual class AudioEngine actual constructor() {
                         )
                         
                         val info = DataLine.Info(SourceDataLine::class.java, audioFormat)
-                        monitoringLine = AudioSystem.getLine(info) as SourceDataLine
+                        
+                        // Try to find "CABLE Input" mixer that supports SourceDataLine
+                        val mixers = AudioSystem.getMixerInfo()
+                        val cableMixerInfo = mixers
+                            .filter { it.name.contains("CABLE Input", ignoreCase = true) }
+                            .find { mixerInfo ->
+                                try {
+                                    val mixer = AudioSystem.getMixer(mixerInfo)
+                                    mixer.isLineSupported(info)
+                                } catch (e: Exception) {
+                                    false
+                                }
+                            }
+                        
+                        if (cableMixerInfo != null) {
+                            println("Found VB-Cable Input: ${cableMixerInfo.name}")
+                            val mixer = AudioSystem.getMixer(cableMixerInfo)
+                            monitoringLine = mixer.getLine(info) as SourceDataLine
+                            isUsingCable = true
+                        } else {
+                            println("VB-Cable Input mixer not found or unsupported, using default audio output.")
+                            monitoringLine = AudioSystem.getLine(info) as SourceDataLine
+                            isUsingCable = false
+                        }
+                        
                         monitoringLine?.open(audioFormat)
                         monitoringLine?.start()
                     }
                     
-                    if (isMonitoring) {
+                    // Always write if using Cable (virtual mic), otherwise respect monitoring setting
+                    if (isUsingCable || isMonitoring) {
                         monitoringLine?.write(packet.buffer, 0, packet.buffer.size)
                     }
                     
-                    // 计算音频电平
+                    // Calculate levels
                     val rms = calculateRMS(packet.buffer)
                     _audioLevels.value = rms
                 } catch (e: Exception) {

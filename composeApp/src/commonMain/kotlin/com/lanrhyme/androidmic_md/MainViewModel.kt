@@ -29,7 +29,8 @@ data class AppUiState(
     val monitoringEnabled: Boolean = false,
     val sampleRate: SampleRate = SampleRate.Rate44100,
     val channelCount: ChannelCount = ChannelCount.Mono,
-    val audioFormat: AudioFormat = AudioFormat.PCM_16BIT
+    val audioFormat: AudioFormat = AudioFormat.PCM_16BIT,
+    val installMessage: String? = null
 )
 
 class MainViewModel : ViewModel() {
@@ -92,8 +93,17 @@ class MainViewModel : ViewModel() {
                 }
             }
         }
+        
+        viewModelScope.launch {
+            audioEngine.installProgress.collect { msg ->
+                _uiState.update { it.copy(installMessage = msg) }
+            }
+        }
 
         if (getPlatform().type == PlatformType.Desktop) {
+            viewModelScope.launch {
+                audioEngine.installDriver()
+            }
             startStream()
         }
     }

@@ -257,6 +257,12 @@ actual class AudioEngine actual constructor() {
     }
 
     actual fun setMonitoring(enabled: Boolean) {
-        // Android 端无需实现监听
+        // Android 端不需要本地监听
+    }
+    
+    actual val installProgress: Flow<String?> = kotlinx.coroutines.flow.flowOf(null)
+    
+    actual suspend fun installDriver() {
+        // Android 端不需要安装驱动
     }
 }

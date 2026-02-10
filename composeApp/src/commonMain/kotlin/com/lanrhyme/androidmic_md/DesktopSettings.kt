@@ -188,6 +188,22 @@ fun DesktopSettings(
 
             item { HorizontalDivider() }
             
+            // System Actions (Only on Desktop)
+            if (getPlatform().type == PlatformType.Desktop) {
+                item {
+                    Text("系统", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { uninstallVBCable() },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("卸载音频驱动 (VB-Cable)")
+                    }
+                }
+                item { HorizontalDivider() }
+            }
+            
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Box(modifier = Modifier.fillMaxWidth()) {
