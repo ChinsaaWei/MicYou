@@ -95,6 +95,7 @@ actual class AudioEngine actual constructor() {
     private var dereverbBufferLeft: IntArray? = null
     private var dereverbBufferRight: IntArray? = null
     private var dereverbIndex: Int = 0
+    private var lastProcessedChannelCount: Int = -1
 
     actual val installProgress: Flow<String?> = VBCableManager.installProgress
     
@@ -123,7 +124,9 @@ actual class AudioEngine actual constructor() {
         this.dereverbLevel = dereverbLevel
         this.amplification = amplification
         
-        println("配置已更新: Amp=$amplification, VAD=$enableVAD ($vadThreshold), AGC=$enableAGC ($agcTargetLevel), NS=$enableNS ($nsType)")
+        if (System.getProperty("micyou.debugAudioConfig") == "true") {
+            println("配置已更新: Amp=$amplification, VAD=$enableVAD ($vadThreshold), AGC=$enableAGC ($agcTargetLevel), NS=$enableNS ($nsType)")
+        }
     }
 
     actual suspend fun start(
@@ -446,6 +449,12 @@ actual class AudioEngine actual constructor() {
     }
     
     private fun processAudio(buffer: ByteArray, format: Int, channelCount: Int): ByteArray? {
+        if (lastProcessedChannelCount != channelCount) {
+            lastProcessedChannelCount = channelCount
+            dereverbBufferLeft = null
+            dereverbBufferRight = null
+            dereverbIndex = 0
+        }
         // 转换为 ShortArray 进行处理
         val shorts: ShortArray
         

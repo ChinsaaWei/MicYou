@@ -14,3 +14,5 @@ actual fun uninstallVBCable() {
     // No-op on Android
 }
 
+actual fun getAppVersion(): String = BuildConfig.VERSION_NAME
+

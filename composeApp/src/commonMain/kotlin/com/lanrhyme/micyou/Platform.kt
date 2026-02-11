@@ -14,3 +14,5 @@ expect fun getPlatform(): Platform
 
 expect fun uninstallVBCable()
 
+expect fun getAppVersion(): String
+

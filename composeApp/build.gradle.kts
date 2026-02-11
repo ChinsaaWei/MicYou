@@ -98,6 +98,10 @@ android {
         versionCode = project.property("project.version.code").toString().toInt()
         versionName = project.property("project.version").toString()
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
     
     signingConfigs {
         create("release") {

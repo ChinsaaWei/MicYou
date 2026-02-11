@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 
 enum class SettingsSection(val label: String, val icon: ImageVector) {
     General("常规", Icons.Default.Settings),
@@ -289,12 +290,22 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                     // Desktop Audio Processing
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                          Column(modifier = Modifier.padding(8.dp)) {
-                            Text(
-                                "${strings.audioConfigAppliedLabel}: ${state.audioConfigRevision}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            var showApplied by remember { mutableStateOf(false) }
+                            LaunchedEffect(state.audioConfigRevision) {
+                                if (state.audioConfigRevision > 0) {
+                                    showApplied = true
+                                    delay(1200)
+                                    showApplied = false
+                                }
+                            }
+                            if (showApplied) {
+                                Text(
+                                    strings.audioConfigAppliedLabel,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
                             // Noise Suppression
                             ListItem(
                                 headlineContent = { Text(strings.enableNsLabel) },
@@ -459,7 +470,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                         HorizontalDivider()
                         ListItem(
                             headlineContent = { Text(strings.versionLabel) },
-                            supportingContent = { Text("1.0.0") },
+                            supportingContent = { Text(getAppVersion()) },
                             leadingContent = { Icon(Icons.Default.Info, null) }
                         )
                         HorizontalDivider()
