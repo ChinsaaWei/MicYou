@@ -236,7 +236,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
             }
             SettingsSection.Audio -> {
                 if (platform.type == PlatformType.Android) {
-                    // Android Audio Params
+                    // Android 音频参数
                      Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                         Column {
                             ListItem(
@@ -402,7 +402,7 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                                 }
                                 item {
                                     Text("AndroidMic", style = MaterialTheme.typography.titleSmall)
-                                    Text("https://github.com/teamclouday/AndroidMic", style = MaterialTheme.typography.bodySmall)
+                                    Text("https://github.com/mhuth/AndroidMic", style = MaterialTheme.typography.bodySmall)
                                 }
                                 item {
                                     Text("JetBrains Compose Multiplatform", style = MaterialTheme.typography.titleSmall)
