@@ -40,6 +40,18 @@ fun OutputStream.toByteWriteChannel(context: CoroutineContext = Dispatchers.IO):
 }.channel
 
 actual class AudioEngine actual constructor() {
+    init {
+        activeEngine = this
+    }
+
+    companion object {
+        @Volatile
+        private var activeEngine: AudioEngine? = null
+
+        fun requestDisconnectFromNotification() {
+            activeEngine?.stop()
+        }
+    }
     private val _state = MutableStateFlow(StreamState.Idle)
     actual val streamState: Flow<StreamState> = _state
     private val _audioLevels = MutableStateFlow(0f)
@@ -56,6 +68,9 @@ actual class AudioEngine actual constructor() {
     
     // Channel for outgoing messages (Audio + Control)
     private var sendChannel: Channel<MessageWrapper>? = null
+
+    @Volatile
+    private var enableStreamingNotification: Boolean = true
     
     private val CHECK_1 = "MicYouCheck1"
     private val CHECK_2 = "MicYouCheck2"
@@ -171,19 +186,6 @@ actual class AudioEngine actual constructor() {
                             closeConnection = { socket.close() }
                         }
 
-                        // 启动前台服务
-                        val context = ContextHelper.getContext()
-                        if (context != null) {
-                            val intent = Intent(context, AudioService::class.java).apply {
-                                action = AudioService.ACTION_START
-                            }
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                context.startForegroundService(intent)
-                            } else {
-                                context.startService(intent)
-                            }
-                        }
-
                         // 握手
                         output.writeFully(CHECK_1.encodeToByteArray())
                         output.flush()
@@ -203,6 +205,20 @@ actual class AudioEngine actual constructor() {
                         recorder.startRecording()
                         _state.value = StreamState.Streaming
                         _lastError.value = null
+
+                        if (enableStreamingNotification) {
+                            val context = ContextHelper.getContext()
+                            if (context != null) {
+                                val intent = Intent(context, AudioService::class.java).apply {
+                                    action = AudioService.ACTION_START
+                                }
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
+                            }
+                        }
 
                         // --- Writer Loop (Send Channel -> Socket) ---
                         val writerJob = launch {
@@ -355,6 +371,14 @@ actual class AudioEngine actual constructor() {
         job?.cancel()
         job = null
         _state.value = StreamState.Idle
+
+        val context = ContextHelper.getContext()
+        if (context != null) {
+            val intent = Intent(context, AudioService::class.java).apply {
+                action = AudioService.ACTION_STOP
+            }
+            context.startService(intent)
+        }
     }
     
     actual fun setMonitoring(enabled: Boolean) {
@@ -392,6 +416,26 @@ actual class AudioEngine actual constructor() {
         amplification: Float
     ) {
         // Android 端无需处理，功能仅存在于桌面端
+    }
+
+    actual fun setStreamingNotificationEnabled(enabled: Boolean) {
+        enableStreamingNotification = enabled
+        val context = ContextHelper.getContext() ?: return
+
+        if (!enabled) {
+            val intent = Intent(context, AudioService::class.java).apply { action = AudioService.ACTION_STOP }
+            context.startService(intent)
+            return
+        }
+
+        if (_state.value == StreamState.Streaming) {
+            val intent = Intent(context, AudioService::class.java).apply { action = AudioService.ACTION_START }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
     }
     
     private fun calculateRMS(buffer: ByteArray, format: com.lanrhyme.micyou.AudioFormat): Float {

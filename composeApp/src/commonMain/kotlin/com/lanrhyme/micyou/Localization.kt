@@ -67,6 +67,7 @@ data class AppStrings(
     val introText: String,
     
     val systemConfigTitle: String,
+    val enableStreamingNotificationLabel: String,
     
     // Missing keys
     val clickToStart: String,
@@ -137,6 +138,7 @@ val EnStrings = AppStrings(
     softwareIntro = "Introduction",
     introText = "MicYou is an open source microphone tool that turns your Android device into a high-quality microphone for your computer. Based on AndroidMic, it supports Wi-Fi (TCP), Bluetooth, and USB connections, providing low-latency audio transmission.",
     systemConfigTitle = "System Configuration",
+    enableStreamingNotificationLabel = "Streaming Notification (Android)",
 
     clickToStart = "Click to Start",
     autoStartDesc = "Start streaming automatically on app launch",
@@ -206,6 +208,7 @@ val ZhStrings = AppStrings(
     softwareIntro = "软件介绍",
     introText = "MicYou 是一款开源的麦克风工具，可以将您的 Android 设备变成电脑的高质量麦克风，本软件基于 AndroidMic 进行开发，支持 Wi-Fi (TCP)、蓝牙 和 USB 连接，提供低延迟的音频传输体验。",
     systemConfigTitle = "系统配置中",
+    enableStreamingNotificationLabel = "串流通知 (Android)",
 
     clickToStart = "点击开始",
     autoStartDesc = "应用启动时自动开始串流",

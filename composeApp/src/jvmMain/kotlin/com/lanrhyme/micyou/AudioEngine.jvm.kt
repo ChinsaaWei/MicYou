@@ -412,6 +412,9 @@ actual class AudioEngine actual constructor() {
         isMonitoring = enabled
     }
 
+    actual fun setStreamingNotificationEnabled(enabled: Boolean) {
+    }
+
     actual fun stop() {
          try {
              job?.cancel()

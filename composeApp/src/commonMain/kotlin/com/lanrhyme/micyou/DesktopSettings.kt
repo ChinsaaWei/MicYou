@@ -170,6 +170,20 @@ fun SettingsContent(section: SettingsSection, viewModel: MainViewModel) {
                             }
                         )
 
+                        if (platform.type == PlatformType.Android) {
+                            HorizontalDivider()
+                            ListItem(
+                                headlineContent = { Text(strings.enableStreamingNotificationLabel) },
+                                trailingContent = {
+                                    Switch(
+                                        checked = state.enableStreamingNotification,
+                                        onCheckedChange = { viewModel.setEnableStreamingNotification(it) }
+                                    )
+                                },
+                                modifier = Modifier.clickable { viewModel.setEnableStreamingNotification(!state.enableStreamingNotification) }
+                            )
+                        }
+
                         if (platform.type == PlatformType.Desktop) {
                             HorizontalDivider()
                             ListItem(

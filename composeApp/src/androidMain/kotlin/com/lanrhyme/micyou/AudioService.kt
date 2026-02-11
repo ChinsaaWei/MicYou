@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.app.PendingIntent
 import androidx.core.app.NotificationCompat
 
 class AudioService : Service() {
@@ -18,6 +19,7 @@ class AudioService : Service() {
         private const val NOTIFICATION_ID = 1
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
+        const val ACTION_DISCONNECT = "ACTION_DISCONNECT"
     }
 
     override fun onCreate() {
@@ -29,6 +31,10 @@ class AudioService : Service() {
         when (intent?.action) {
             ACTION_START -> startForegroundService()
             ACTION_STOP -> stopForegroundService()
+            ACTION_DISCONNECT -> {
+                AudioEngine.requestDisconnectFromNotification()
+                stopForegroundService()
+            }
         }
         return START_NOT_STICKY
     }
@@ -53,11 +59,22 @@ class AudioService : Service() {
     }
 
     private fun createNotification(): Notification {
+        val disconnectIntent = Intent(this, AudioService::class.java).apply { action = ACTION_DISCONNECT }
+        val disconnectPendingIntent = PendingIntent.getService(
+            this,
+            0,
+            disconnectIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Android Mic Streaming")
-            .setContentText("Microphone is active and streaming audio.")
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now) // Replace with your app icon if available
+            .setContentTitle(getString(R.string.streaming_notification_title))
+            .setContentText(getString(R.string.streaming_notification_text))
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .setContentIntent(disconnectPendingIntent)
             .build()
     }
 

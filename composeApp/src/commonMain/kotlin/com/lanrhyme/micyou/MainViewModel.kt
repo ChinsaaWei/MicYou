@@ -54,6 +54,8 @@ data class AppUiState(
     val amplification: Float = 10.0f,
 
     val audioConfigRevision: Int = 0,
+
+    val enableStreamingNotification: Boolean = true,
     
     val autoStart: Boolean = false,
     
@@ -109,6 +111,8 @@ class MainViewModel : ViewModel() {
         val savedDereverbLevel = settings.getFloat("dereverb_level", 0.5f)
         
         val savedAmplification = settings.getFloat("amplification", 10.0f)
+
+        val savedEnableStreamingNotification = settings.getBoolean("enable_streaming_notification", true)
         
         val savedAutoStart = settings.getBoolean("auto_start", false)
 
@@ -136,11 +140,13 @@ class MainViewModel : ViewModel() {
                 dereverbLevel = savedDereverbLevel,
                 amplification = savedAmplification,
                 autoStart = savedAutoStart,
+                enableStreamingNotification = savedEnableStreamingNotification,
                 language = savedLanguage
             ) 
         }
         
         audioEngine.setMonitoring(savedMonitoring)
+        audioEngine.setStreamingNotificationEnabled(savedEnableStreamingNotification)
         updateAudioEngineConfig()
 
         viewModelScope.launch {
@@ -334,6 +340,12 @@ class MainViewModel : ViewModel() {
     fun setAutoStart(enabled: Boolean) {
         _uiState.update { it.copy(autoStart = enabled) }
         settings.putBoolean("auto_start", enabled)
+    }
+
+    fun setEnableStreamingNotification(enabled: Boolean) {
+        _uiState.update { it.copy(enableStreamingNotification = enabled) }
+        settings.putBoolean("enable_streaming_notification", enabled)
+        audioEngine.setStreamingNotificationEnabled(enabled)
     }
 
     fun setLanguage(language: AppLanguage) {

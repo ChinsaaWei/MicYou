@@ -49,5 +49,6 @@ expect class AudioEngine() {
 
     // 设置静音状态
     suspend fun setMute(muted: Boolean)
-}
 
+    fun setStreamingNotificationEnabled(enabled: Boolean)
+}
