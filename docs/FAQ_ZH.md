@@ -1,5 +1,9 @@
 # 常见问题
 
+<p align="center">
+  <b>简体中文</b> | <a href="./README_ZH.md">English</a>
+</p>
+
 ## 无法连接设备
 
 ### Wi-Fi 模式
