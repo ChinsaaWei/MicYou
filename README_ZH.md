@@ -55,3 +55,8 @@ MicYou 是一款强大的工具，可以将您的 Android 设备变成 PC 的高
 ```bash
 ./gradlew :composeApp:run
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=lanrhyme/MicYou&type=Date)](https://star-history.com/#lanrhyme/MicYou&Date)
+

@@ -55,3 +55,8 @@ This project is built using Kotlin Multiplatform.
 ```bash
 ./gradlew :composeApp:run
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=lanrhyme/MicYou&type=Date)](https://star-history.com/#lanrhyme/MicYou&Date)
+
