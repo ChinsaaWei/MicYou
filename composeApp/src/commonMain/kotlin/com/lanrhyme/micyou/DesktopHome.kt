@@ -88,6 +88,24 @@ fun DesktopHome(
         )
     }
 
+    if (state.showFirewallDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissFirewallDialog() },
+            title = { Text(strings.firewallTitle) },
+            text = { Text(strings.firewallMessage.replace("%d", state.pendingFirewallPort?.toString() ?: "")) },
+            confirmButton = {
+                Button(onClick = { viewModel.confirmAddFirewallRule() }) {
+                    Text(strings.firewallConfirm)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissFirewallDialog() }) {
+                    Text(strings.firewallDismiss)
+                }
+            }
+        )
+    }
+
     Surface(
         color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,

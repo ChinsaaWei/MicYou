@@ -92,7 +92,11 @@ data class AppStrings(
     val exportLog: String,
     val exportLogDesc: String,
     val logExported: String,
-    val logExportFailed: String
+    val logExportFailed: String,
+    val firewallTitle: String,
+    val firewallMessage: String,
+    val firewallConfirm: String,
+    val firewallDismiss: String
 )
 
 val EnStrings = AppStrings(
@@ -175,7 +179,11 @@ val EnStrings = AppStrings(
     exportLog = "Export Log",
     exportLogDesc = "Export application logs for debugging",
     logExported = "Log exported to: %s",
-    logExportFailed = "Failed to export log"
+    logExportFailed = "Failed to export log",
+    firewallTitle = "Firewall Check",
+    firewallMessage = "Port %d is not allowed by Windows Firewall. This may prevent Android devices from connecting via Wi-Fi.\n\nWould you like to try adding a firewall rule for this port? (Requires Administrator privileges)",
+    firewallConfirm = "Try Add Rule",
+    firewallDismiss = "Ignore"
 )
 
 val ZhStrings = AppStrings(
@@ -258,7 +266,11 @@ val ZhStrings = AppStrings(
     exportLog = "导出日志",
     exportLogDesc = "导出应用日志以供调试",
     logExported = "日志已导出至: %s",
-    logExportFailed = "导出日志失败"
+    logExportFailed = "导出日志失败",
+    firewallTitle = "防火墙检查",
+    firewallMessage = "端口 %d 似乎未被 Windows 防火墙放行。这可能会导致 Android 设备无法通过 Wi-Fi 连接。\n\n是否尝试自动添加防火墙规则？（需要管理员权限）",
+    firewallConfirm = "尝试添加",
+    firewallDismiss = "忽略"
 )
 
 val LocalAppStrings = staticCompositionLocalOf { ZhStrings }

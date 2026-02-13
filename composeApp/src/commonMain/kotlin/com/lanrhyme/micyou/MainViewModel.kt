@@ -65,7 +65,9 @@ data class AppUiState(
     val useDynamicColor: Boolean = false,
     val bluetoothAddress: String = "",
     val isAutoConfig: Boolean = true,
-    val snackbarMessage: String? = null
+    val snackbarMessage: String? = null,
+    val showFirewallDialog: Boolean = false,
+    val pendingFirewallPort: Int? = null
 )
 
 class MainViewModel : ViewModel() {
@@ -263,6 +265,15 @@ class MainViewModel : ViewModel() {
         val channelCount = _uiState.value.channelCount
         val audioFormat = _uiState.value.audioFormat
 
+        // Windows 防火墙检查
+        if (!isClient && mode == ConnectionMode.Wifi) {
+            if (!isPortAllowed(port, "TCP")) {
+                Logger.w("MainViewModel", "Port $port is not allowed by firewall")
+                _uiState.update { it.copy(showFirewallDialog = true, pendingFirewallPort = port) }
+                return
+            }
+        }
+
         // Config is already updated via updateAudioEngineConfig, but we pass params to start just in case or for init
         updateAudioEngineConfig()
 
@@ -273,6 +284,27 @@ class MainViewModel : ViewModel() {
             } catch (e: Exception) {
                 Logger.e("MainViewModel", "Failed to start stream", e)
                 _uiState.update { it.copy(errorMessage = e.message) }
+            }
+        }
+    }
+
+    fun dismissFirewallDialog() {
+        _uiState.update { it.copy(showFirewallDialog = false, pendingFirewallPort = null) }
+    }
+
+    fun confirmAddFirewallRule() {
+        val port = _uiState.value.pendingFirewallPort ?: return
+        _uiState.update { it.copy(showFirewallDialog = false, pendingFirewallPort = null) }
+        
+        viewModelScope.launch {
+            val result = addFirewallRule(port, "TCP")
+            if (result.isSuccess) {
+                Logger.i("MainViewModel", "Firewall rule added successfully")
+                startStream() // 成功添加后重试启动串流
+            } else {
+                val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                Logger.e("MainViewModel", "Failed to add firewall rule: $error")
+                _uiState.update { it.copy(errorMessage = "无法自动添加防火墙规则: $error\n请尝试以管理员身份运行程序，或手动在防火墙中放行 TCP $port 端口。") }
             }
         }
     }

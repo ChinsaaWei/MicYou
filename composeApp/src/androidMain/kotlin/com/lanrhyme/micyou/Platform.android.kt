@@ -22,6 +22,9 @@ actual fun uninstallVBCable() {
 
 actual fun getAppVersion(): String = BuildConfig.VERSION_NAME
 
+actual fun isPortAllowed(port: Int, protocol: String): Boolean = true
+actual suspend fun addFirewallRule(port: Int, protocol: String): Result<Unit> = Result.success(Unit)
+
 @Composable
 actual fun getDynamicColorScheme(isDark: Boolean): ColorScheme? {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

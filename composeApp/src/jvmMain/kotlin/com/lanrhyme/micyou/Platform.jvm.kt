@@ -78,6 +78,9 @@ actual fun getAppVersion(): String {
     return "dev"
 }
 
+actual fun isPortAllowed(port: Int, protocol: String): Boolean = FirewallManager.isPortAllowed(port, protocol)
+actual suspend fun addFirewallRule(port: Int, protocol: String): Result<Unit> = FirewallManager.addFirewallRule(port, protocol)
+
 @Composable
 actual fun getDynamicColorScheme(isDark: Boolean): ColorScheme? {
     return null
