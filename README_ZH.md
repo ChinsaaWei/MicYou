@@ -47,7 +47,7 @@ MicYou 是一款强大的工具，可以将您的 Android 设备变成 PC 的高
 #### 使用预编译包（推荐）
 预编译包可在 [GitHub Releases](https://github.com/LanRhyme/MicYou/releases) 下载
 
-**DEB 包（适用于 Debian/Ubuntu/Mint 等系统）：**
+**DEB 包（适用于 Debian/Ubuntu/Mint 等发行版）：**
 ```bash
 # 从 GitHub Releases 下载 .deb 包
 sudo dpkg -i MicYou-*.deb
@@ -55,12 +55,23 @@ sudo dpkg -i MicYou-*.deb
 sudo apt install -f
 ```
 
-**RPM 包（适用于 Fedora/RHEL/openSUSE 等系统）：**
+**RPM 包（适用于 Fedora/RHEL/openSUSE 等发行版）：**
 ```bash
 # 从 GitHub Releases 下载 .rpm 包
 sudo rpm -i MicYou-*.rpm
 # 或者使用 dnf/yum：
 sudo dnf install MicYou-*.rpm
+```
+
+**AUR 仓库（适用于 Arch Linux 及其衍生发行版）：**
+```bash
+# 克隆 AUR 仓库并自动安装软件包及其依赖
+git clone https://aur.archlinux.org/micyou-bin.git
+cd micyou-bin
+makepkg -si
+
+# 或者使用 paru 等 AUR helpers
+paru -S micyou-bin
 ```
 
 **运行应用：**

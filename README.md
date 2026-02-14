@@ -59,8 +59,19 @@ sudo apt install -f
 ```bash
 # Download the .rpm package from GitHub Releases
 sudo rpm -i MicYou-*.rpm
-# Or using dnf/yum:
+# Or use dnf/yum:
 sudo dnf install MicYou-*.rpm
+```
+
+**AUR (Arch Linux and derivatives):**
+```bash
+# Clone the AUR repo and install the package
+git clone https://aur.archlinux.org/micyou-bin.git
+cd micyou-bin
+makepkg -si
+
+# Or use an AUR helper like paru/yay
+paru -S micyou-bin
 ```
 
 **Run the application:**
