@@ -4,18 +4,114 @@ import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
-import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import java.awt.Font
-import java.awt.SystemColor
 import javax.swing.UIManager
 import micyou.composeapp.generated.resources.Res
 import micyou.composeapp.generated.resources.app_icon
 import org.jetbrains.compose.resources.painterResource
+
+/**
+ * 托盘菜单配置
+ */
+data class TrayMenuConfig(
+    val showHideText: String,
+    val connectText: String,
+    val settingsText: String,
+    val exitText: String
+)
+
+/**
+ * 初始化系统托盘
+ */
+fun initializeSystemTray(
+    config: TrayMenuConfig,
+    onShowHideClick: () -> Unit,
+    onConnectDisconnectClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onExitClick: () -> Unit
+): TrayManager {
+    val trayManager = TrayManager.getInstance()
+
+    // 检查是否支持系统托盘
+    if (!trayManager.isSupported) {
+        Logger.w("Main", "SystemTray is not supported on this platform")
+        return trayManager
+    }
+
+    // 获取图标路径
+    val iconPath = TrayMenu.getDefaultIconPath()
+    Logger.i("Main", "Using icon path: $iconPath")
+
+    // 初始化托盘
+    trayManager.initialize(iconPath, "MicYou")
+
+    // 设置托盘状态
+    if (trayManager.state == TrayManager.TrayState.READY) {
+        // 清除现有菜单
+        trayManager.clearMenu()
+
+        // 添加菜单项
+        trayManager.addMenuItem(
+            text = config.showHideText,
+            enabled = true,
+            callback = onShowHideClick
+        )
+
+        trayManager.addMenuItem(
+            text = config.connectText,
+            enabled = true,
+            callback = onConnectDisconnectClick
+        )
+
+        trayManager.addMenuItem(
+            text = config.settingsText,
+            enabled = true,
+            callback = onSettingsClick
+        )
+
+        trayManager.addSeparator()
+
+        trayManager.addMenuItem(
+            text = config.exitText,
+            enabled = true,
+            callback = onExitClick
+        )
+
+        Logger.i("Main", "SystemTray initialized with menu items")
+    } else {
+        Logger.w("Main", "SystemTray initialization failed, state: ${trayManager.state}")
+    }
+
+    return trayManager
+}
+
+/**
+ * 更新系统托盘菜单项
+ */
+fun updateSystemTrayMenu(
+    trayManager: TrayManager,
+    config: TrayMenuConfig
+) {
+    if (trayManager.state != TrayManager.TrayState.READY) return
+
+    // 更新显示/隐藏菜单项
+    trayManager.updateMenuItem(
+        TrayMenu.DefaultItems.SHOW_HIDE,
+        text = config.showHideText
+    )
+
+    // 更新连接/断开菜单项
+    trayManager.updateMenuItem(
+        TrayMenu.DefaultItems.CONNECT_DISCONNECT,
+        text = config.connectText
+    )
+
+    Logger.d("Main", "Tray menu updated: showHide=${config.showHideText}, connect=${config.connectText}")
+}
 
 fun main() {
     Logger.init(JvmLogger())
@@ -63,45 +159,58 @@ fun main() {
         val streamState by viewModel.uiState.collectAsState().let { state ->
             derivedStateOf { state.value.streamState }
         }
+        val isStreaming = streamState == StreamState.Streaming || streamState == StreamState.Connecting
 
-        // System Tray
-        val trayState = rememberTrayState()
+        // 图标资源
         val icon = painterResource(Res.drawable.app_icon)
 
-        Tray(
-            state = trayState,
-            icon = icon,
-            tooltip = "MicYou",
-            onAction = { isVisible = true }, // Left click to show window
-            menu = {
-                Item(
-                    text = if (isVisible) "Hide Window" else "Show Window",
-                    onClick = { isVisible = !isVisible }
-                )
-                Item(
-                    text = if (streamState == StreamState.Streaming || streamState == StreamState.Connecting) "Disconnect" else "Connect",
-                    onClick = { viewModel.toggleStream() }
-                )
-                Item(
-                    text = "Settings",
-                    onClick = { 
-                        isSettingsOpen = true
-                        isVisible = true 
+        // 计算托盘菜单配置
+        val trayConfig = remember(strings, isVisible, isStreaming) {
+            TrayMenuConfig(
+                showHideText = if (isVisible) strings.trayHide else strings.trayShow,
+                connectText = if (isStreaming) strings.stop else strings.start,
+                settingsText = strings.settingsTitle,
+                exitText = strings.trayExit
+            )
+        }
+
+        // 初始化系统托盘（在 application 块内）
+        val trayManager = remember {
+            initializeSystemTray(
+                config = trayConfig,
+                onShowHideClick = { isVisible = !isVisible },
+                onConnectDisconnectClick = { viewModel.toggleStream() },
+                onSettingsClick = {
+                    isSettingsOpen = true
+                    isVisible = true
+                },
+                onExitClick = {
+                    // 退出前尝试恢复默认麦克风
+                    kotlinx.coroutines.runBlocking {
+                        VBCableManager.setSystemDefaultMicrophone(toCable = false)
                     }
-                )
-                Separator()
-                Item(
-                    text = "Exit",
-                    onClick = { 
-                        // 退出前尝试恢复默认麦克风 (使用 runBlocking 确保在进程结束前完成)
-                        kotlinx.coroutines.runBlocking {
-                            VBCableManager.setSystemDefaultMicrophone(toCable = false)
-                        }
-                        exitApplication() 
-                    }
-                )
-            }
-        )
+                    // 清理托盘
+                    TrayManager.getInstance().dispose()
+                    exitApplication()
+                }
+            )
+        }
+
+        // 监听状态变化，更新托盘菜单
+        LaunchedEffect(isVisible, isStreaming, strings) {
+            val config = TrayMenuConfig(
+                showHideText = if (isVisible) strings.trayHide else strings.trayShow,
+                connectText = if (isStreaming) strings.stop else strings.start,
+                settingsText = strings.settingsTitle,
+                exitText = strings.trayExit
+            )
+            updateSystemTrayMenu(trayManager, config)
+        }
+
+        // 监听托盘状态变化
+        LaunchedEffect(trayManager.state) {
+            Logger.d("Main", "TrayManager state changed: ${trayManager.state}")
+        }
 
         // Main Window State
         val windowState = rememberWindowState(
@@ -119,13 +228,14 @@ fun main() {
                             kotlinx.coroutines.runBlocking {
                                 VBCableManager.setSystemDefaultMicrophone(toCable = false)
                             }
+                            TrayManager.getInstance().dispose()
                             exitApplication() 
                         },
                         onHide = { isVisible = false }
                     )
                 },
                 state = windowState,
-                title = "MicYou",
+                title = strings.appName,
                 icon = icon,
                 undecorated = true,
                 transparent = true, // Allows rounded corners via Surface in DesktopHome
@@ -141,6 +251,7 @@ fun main() {
                                     kotlinx.coroutines.runBlocking {
                                         VBCableManager.setSystemDefaultMicrophone(toCable = false)
                                     }
+                                    TrayManager.getInstance().dispose()
                                     exitApplication() 
                                 },
                                 onHide = { isVisible = false }
@@ -150,6 +261,7 @@ fun main() {
                             kotlinx.coroutines.runBlocking {
                                 VBCableManager.setSystemDefaultMicrophone(toCable = false)
                             }
+                            TrayManager.getInstance().dispose()
                             exitApplication() 
                         },
                         onHideApp = { isVisible = false },
@@ -159,44 +271,51 @@ fun main() {
             }
         }
 
-    // Settings Window
-    if (isSettingsOpen) {
-        val settingsState = rememberWindowState(
-            width = 530.dp,
-            height = 500.dp,
-            position = WindowPosition(Alignment.Center)
-        )
-        
-        Window(
-            onCloseRequest = { isSettingsOpen = false },
-            state = settingsState,
-            title = "Settings",
-            icon = painterResource(Res.drawable.app_icon),
-            resizable = false
-        ) {
-            // Re-use theme logic from AppTheme but apply to settings window content
-            val themeMode by viewModel.uiState.collectAsState().let { state ->
-                derivedStateOf { state.value.themeMode }
-            }
-            val seedColor by viewModel.uiState.collectAsState().let { state ->
-                derivedStateOf { state.value.seedColor }
-            }
-            val language by viewModel.uiState.collectAsState().let { state ->
-                derivedStateOf { state.value.language }
-            }
-            val seedColorObj = androidx.compose.ui.graphics.Color(seedColor.toInt())
-            val strings = getStrings(language)
-
-            CompositionLocalProvider(LocalAppStrings provides strings) {
-                AppTheme(themeMode = themeMode, seedColor = seedColorObj) {
-                    DesktopSettings(
-                        viewModel = viewModel,
-                        onClose = { isSettingsOpen = false }
-                    )
+        // Settings Window
+        if (isSettingsOpen) {
+            val settingsState = rememberWindowState(
+                width = 530.dp,
+                height = 500.dp,
+                position = WindowPosition(Alignment.Center)
+            )
+            
+            Window(
+                onCloseRequest = { isSettingsOpen = false },
+                state = settingsState,
+                title = strings.settingsTitle,
+                icon = icon,
+                resizable = false
+            ) {
+                // Re-use theme logic from AppTheme but apply to settings window content
+                val themeMode by viewModel.uiState.collectAsState().let { state ->
+                    derivedStateOf { state.value.themeMode }
                 }
+                val seedColor by viewModel.uiState.collectAsState().let { state ->
+                    derivedStateOf { state.value.seedColor }
+                }
+                val language by viewModel.uiState.collectAsState().let { state ->
+                    derivedStateOf { state.value.language }
+                }
+                val seedColorObj = androidx.compose.ui.graphics.Color(seedColor.toInt())
+                val strings = getStrings(language)
+
+                CompositionLocalProvider(LocalAppStrings provides strings) {
+                    AppTheme(themeMode = themeMode, seedColor = seedColorObj) {
+                        DesktopSettings(
+                            viewModel = viewModel,
+                            onClose = { isSettingsOpen = false }
+                        )
+                    }
+                }
+            }
+        }
+
+        // 应用退出时清理托盘
+        DisposableEffect(Unit) {
+            onDispose {
+                Logger.i("Main", "Application disposed, cleaning up tray")
+                TrayManager.getInstance().dispose()
             }
         }
     }
 }
-}
-
