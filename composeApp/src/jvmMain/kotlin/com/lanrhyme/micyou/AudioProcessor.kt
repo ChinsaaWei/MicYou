@@ -2,7 +2,6 @@ package com.lanrhyme.micyou
 
 import java.io.File
 import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 
 class AudioProcessor(
     preGainDb: Float,
@@ -14,6 +13,7 @@ class AudioProcessor(
     private var nativeHandle: Long = 0
 
     init {
+        ensureNativeLibraryLoaded()
         nativeHandle = nativeCreate(preGainDb, postGainDb, modelPath, frameSize, hopLength)
     }
 
@@ -70,68 +70,205 @@ class AudioProcessor(
     companion object {
         @Volatile
         private var libraryLoaded = false
+        private val lock = Any()
 
-        init {
-            loadNativeLibrary()
-        }
+        private val DEPENDENT_DLLS = listOf(
+            "onnxruntime_providers_shared.dll",
+            "onnxruntime.dll"
+        )
 
-        private fun loadNativeLibrary() {
+        fun ensureNativeLibraryLoaded() {
             if (libraryLoaded) return
 
-            synchronized(this) {
+            synchronized(lock) {
                 if (libraryLoaded) return
 
-                val dllName = "audio_processor.dll"
-                val tempDir = Files.createTempDirectory("micyou_native")
-                val tempDll = tempDir.resolve(dllName).toFile()
-
-                // 尝试从 classpath 加载 DLL 到临时目录
-                val classLoader = AudioProcessor::class.java.classLoader
-                val resourceStream = classLoader.getResourceAsStream(dllName)
-                    ?: classLoader.getResourceAsStream("$dllName")
-
-                if (resourceStream != null) {
-                    resourceStream.use { input ->
-                        tempDll.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    tempDll.deleteOnExit()
-                    System.load(tempDll.absolutePath)
-                    libraryLoaded = true
-                    return
+                val osName = System.getProperty("os.name").lowercase()
+                val dllName = when {
+                    osName.contains("win") -> "audio_processor.dll"
+                    osName.contains("mac") -> "libaudio_processor.dylib"
+                    else -> "libaudio_processor.so"
                 }
 
-                // 如果 classpath 中没有，尝试从文件系统加载
-                val searchPaths = listOf(
-                    dllName,
-                    "composeApp/src/jvmMain/resources/$dllName",
-                    "src/jvmMain/resources/$dllName",
-                    "../src/jvmMain/resources/$dllName",
-                    "../../src/jvmMain/resources/$dllName"
-                )
+                val loaded = tryLoadFromDevelopmentPaths(dllName)
+                    || tryLoadFromClasspath(dllName)
+                    || tryLoadFromSystemProperty(dllName)
+                    || tryLoadFromSystemLibraryPath()
 
-                for (path in searchPaths) {
-                    val file = File(path)
+                if (!loaded) {
+                    throw UnsatisfiedLinkError(
+                        "无法加载 $dllName\n" +
+                        "请确保文件存在于以下位置之一：\n" +
+                        "  - classpath 根目录或 natives/ 目录\n" +
+                        "  - 开发环境: composeApp/src/jvmMain/resources/\n" +
+                        "  - 或设置系统属性: -Dmicyou.library.path=/path/to/dll"
+                    )
+                }
+
+                libraryLoaded = true
+                Logger.i("AudioProcessor", "Native library loaded successfully: $dllName")
+            }
+        }
+
+        private fun tryLoadFromSystemProperty(dllName: String): Boolean {
+            val customPath = System.getProperty("micyou.library.path")
+            if (!customPath.isNullOrBlank()) {
+                val dir = File(customPath)
+                if (dir.exists() && dir.isDirectory) {
+                    loadDependentDllsFromDirectory(dir)
+                    val file = File(dir, dllName)
                     if (file.exists() && file.isFile) {
                         System.load(file.absolutePath)
-                        libraryLoaded = true
-                        return
+                        Logger.i("AudioProcessor", "Loaded from system property: ${file.absolutePath}")
+                        return true
                     }
                 }
+                val directFile = File(customPath)
+                if (directFile.exists() && directFile.isFile && directFile.name == dllName) {
+                    System.load(directFile.absolutePath)
+                    Logger.i("AudioProcessor", "Loaded from system property (direct): ${directFile.absolutePath}")
+                    return true
+                }
+            }
+            return false
+        }
 
-                // 最后尝试从 java.library.path 加载
-                try {
-                    System.loadLibrary("audio_processor")
-                    libraryLoaded = true
-                } catch (e: UnsatisfiedLinkError) {
-                    throw UnsatisfiedLinkError(
-                        "无法加载 audio_processor.dll。请确保 DLL 文件在以下位置之一：\n" +
-                        searchPaths.joinToString("\n") { "  - $it" } + "\n" +
-                        "或将其放在 classpath 根目录"
-                    )
+        private fun tryLoadFromClasspath(dllName: String): Boolean {
+            val classLoader = AudioProcessor::class.java.classLoader
+            
+            val resourcePaths = listOf(dllName, "natives/$dllName", "native/$dllName")
+            
+            for (resourcePath in resourcePaths) {
+                val resourceStream = classLoader.getResourceAsStream(resourcePath)
+                if (resourceStream != null) {
+                    try {
+                        val tempDir = Files.createTempDirectory("micyou_native").toFile()
+                        tempDir.deleteOnExit()
+                        
+                        extractAndLoadDependentDlls(classLoader, tempDir)
+                        
+                        val tempDll = File(tempDir, dllName)
+                        resourceStream.use { input ->
+                            tempDll.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        tempDll.deleteOnExit()
+                        
+                        System.load(tempDll.absolutePath)
+                        Logger.i("AudioProcessor", "Loaded from classpath: $resourcePath -> ${tempDll.absolutePath}")
+                        return true
+                    } catch (e: Exception) {
+                        Logger.w("AudioProcessor", "Failed to load from classpath: $resourcePath - ${e.message}")
+                    }
+                }
+            }
+            return false
+        }
+
+        private fun extractAndLoadDependentDlls(classLoader: ClassLoader, targetDir: File) {
+            for (depDll in DEPENDENT_DLLS) {
+                val depPaths = listOf(depDll, "natives/$depDll", "native/$depDll")
+                for (depPath in depPaths) {
+                    val depStream = classLoader.getResourceAsStream(depPath)
+                    if (depStream != null) {
+                        val targetFile = File(targetDir, depDll)
+                        depStream.use { input ->
+                            targetFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        targetFile.deleteOnExit()
+                        Logger.i("AudioProcessor", "Extracted dependent DLL: $depPath -> ${targetFile.absolutePath}")
+                        
+                        try {
+                            System.load(targetFile.absolutePath)
+                            Logger.i("AudioProcessor", "Pre-loaded dependent DLL: ${targetFile.absolutePath}")
+                        } catch (e: UnsatisfiedLinkError) {
+                            Logger.w("AudioProcessor", "Failed to pre-load dependent DLL: ${targetFile.absolutePath} - ${e.message}")
+                        }
+                        break
+                    }
                 }
             }
         }
+
+        private fun loadDependentDllsFromDirectory(dir: File) {
+            for (depDll in DEPENDENT_DLLS) {
+                val depFile = File(dir, depDll)
+                if (depFile.exists() && depFile.isFile) {
+                    try {
+                        System.load(depFile.absolutePath)
+                        Logger.i("AudioProcessor", "Pre-loaded dependent DLL from dir: ${depFile.absolutePath}")
+                    } catch (e: UnsatisfiedLinkError) {
+                        Logger.w("AudioProcessor", "Failed to pre-load dependent DLL: ${depFile.absolutePath} - ${e.message}")
+                    }
+                }
+            }
+        }
+
+        private fun tryLoadFromDevelopmentPaths(dllName: String): Boolean {
+            val userDir = System.getProperty("user.dir") ?: ""
+            Logger.i("AudioProcessor", "Current working directory: $userDir")
+            
+            val devPaths = listOf(
+                "composeApp/src/jvmMain/resources",
+                "src/jvmMain/resources",
+                "../src/jvmMain/resources",
+                "../../src/jvmMain/resources"
+            )
+
+            for (path in devPaths) {
+                val dir = if (File(path).isAbsolute) {
+                    File(path)
+                } else {
+                    File(userDir, path)
+                }
+                
+                Logger.i("AudioProcessor", "Checking development path: ${dir.absolutePath}")
+                
+                if (dir.exists() && dir.isDirectory) {
+                    val dllFile = File(dir, dllName)
+                    Logger.i("AudioProcessor", "Checking DLL file: ${dllFile.absolutePath}, exists: ${dllFile.exists()}")
+                    
+                    if (dllFile.exists() && dllFile.isFile) {
+                        Logger.i("AudioProcessor", "Found DLL at: ${dllFile.absolutePath}")
+                        Logger.i("AudioProcessor", "Loading dependent DLLs from: ${dir.absolutePath}")
+                        
+                        for (depDll in DEPENDENT_DLLS) {
+                            val depFile = File(dir, depDll)
+                            Logger.i("AudioProcessor", "Checking dependent DLL: ${depFile.absolutePath}, exists: ${depFile.exists()}")
+                            if (depFile.exists() && depFile.isFile) {
+                                try {
+                                    System.load(depFile.absolutePath)
+                                    Logger.i("AudioProcessor", "Pre-loaded dependent DLL: ${depFile.absolutePath}")
+                                } catch (e: UnsatisfiedLinkError) {
+                                    Logger.w("AudioProcessor", "Failed to pre-load dependent DLL: ${depFile.absolutePath} - ${e.message}")
+                                }
+                            } else {
+                                Logger.w("AudioProcessor", "Dependent DLL not found: ${depFile.absolutePath}")
+                            }
+                        }
+                        
+                        System.load(dllFile.absolutePath)
+                        Logger.i("AudioProcessor", "Loaded from development path: ${dllFile.absolutePath}")
+                        return true
+                    }
+                }
+            }
+            return false
+        }
+
+        private fun tryLoadFromSystemLibraryPath(): Boolean {
+            return try {
+                System.loadLibrary("audio_processor")
+                Logger.i("AudioProcessor", "Loaded from system library path")
+                true
+            } catch (e: UnsatisfiedLinkError) {
+                false
+            }
+        }
+
+        fun isLibraryLoaded(): Boolean = libraryLoaded
     }
 }

@@ -1,9 +1,3 @@
 [submodule "AndroidMic"]
 	path = AndroidMic
 	url = https://github.com/teamclouday/AndroidMic
-[submodule "composeApp/src/jvmMain/cpp/onnxruntime"]
-	path = composeApp/src/jvmMain/cpp/onnxruntime
-	url = https://github.com/microsoft/onnxruntime.git
-[submodule "composeApp/src/jvmMain/cpp/pffft"]
-	path = composeApp/src/jvmMain/cpp/pffft
-	url = https://github.com/marton78/pffft.git

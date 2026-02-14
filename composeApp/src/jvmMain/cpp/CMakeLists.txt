@@ -4,49 +4,81 @@ project(audio_processor)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 查找 JNI
 find_package(JNI REQUIRED)
 
-# 设置 ONNX Runtime 路径
-set(ONNXRUNTIME_DIR ${CMAKE_CURRENT_SOURCE_DIR}/onnxruntime)
-set(ONNXRUNTIME_BUILD_DIR ${ONNXRUNTIME_DIR}/build/Windows/Release/Release)
+set(ONNXRUNTIME_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ONNX_Runtime_1.14.1_Bin_Include_All_Platforms)
 
-# 检查 ONNX Runtime 是否已编译
-if(NOT EXISTS ${ONNXRUNTIME_BUILD_DIR}/onnxruntime.lib)
-    message(FATAL_ERROR "ONNX Runtime 未编译！请先按照 BUILD_INSTRUCTIONS.md 中的说明编译 ONNX Runtime。\n"
-                        "缺失文件: ${ONNXRUNTIME_BUILD_DIR}/onnxruntime.lib")
+if(WIN32)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(ONNXRUNTIME_PLATFORM_DIR onnxruntime-win-x64-1.14.1)
+    else()
+        set(ONNXRUNTIME_PLATFORM_DIR onnxruntime-win-x86-1.14.1)
+    endif()
+elseif(APPLE)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+        set(ONNXRUNTIME_PLATFORM_DIR onnxruntime-osx-arm64-1.14.1)
+    else()
+        set(ONNXRUNTIME_PLATFORM_DIR onnxruntime-osx-x64-1.14.1)
+    endif()
+elseif(LINUX)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        set(ONNXRUNTIME_PLATFORM_DIR onnxruntime-linux-aarch64-1.14.1)
+    else()
+        set(ONNXRUNTIME_PLATFORM_DIR onnxruntime-linux-x64-1.14.1)
+    endif()
 endif()
 
-# 包含目录
+set(ONNXRUNTIME_DIR ${ONNXRUNTIME_BASE_DIR}/${ONNXRUNTIME_PLATFORM_DIR})
+set(ONNXRUNTIME_INCLUDE_DIR ${ONNXRUNTIME_DIR}/include)
+set(ONNXRUNTIME_LIB_DIR ${ONNXRUNTIME_DIR}/lib)
+
+if(WIN32)
+    if(NOT EXISTS ${ONNXRUNTIME_LIB_DIR}/onnxruntime.lib)
+        message(FATAL_ERROR "ONNX Runtime 预编译库未找到！\n"
+                            "缺失文件: ${ONNXRUNTIME_LIB_DIR}/onnxruntime.lib")
+    endif()
+elseif(APPLE)
+    if(NOT EXISTS ${ONNXRUNTIME_LIB_DIR}/libonnxruntime.dylib)
+        message(FATAL_ERROR "ONNX Runtime 预编译库未找到！\n"
+                            "缺失文件: ${ONNXRUNTIME_LIB_DIR}/libonnxruntime.dylib")
+    endif()
+else()
+    if(NOT EXISTS ${ONNXRUNTIME_LIB_DIR}/libonnxruntime.so)
+        message(FATAL_ERROR "ONNX Runtime 预编译库未找到！\n"
+                            "缺失文件: ${ONNXRUNTIME_LIB_DIR}/libonnxruntime.so")
+    endif()
+endif()
+
 include_directories(
     ${JNI_INCLUDE_DIRS}
-    ${ONNXRUNTIME_DIR}/include/onnxruntime/core/session
-    ${ONNXRUNTIME_DIR}/include/onnxruntime/core/providers/cpu
+    ${ONNXRUNTIME_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/pffft
 )
 
-# 链接目录
-link_directories(${ONNXRUNTIME_BUILD_DIR})
+link_directories(${ONNXRUNTIME_LIB_DIR})
 
-# PFFFT 源文件
 set(PFFFT_SOURCES
     pffft/pffft.c
     pffft/pffft_common.c
 )
 
-# 创建共享库
 add_library(audio_processor SHARED
     audio_processor.cpp
     ${PFFFT_SOURCES}
 )
 
-# 链接库
-target_link_libraries(audio_processor
-    ${JNI_LIBRARIES}
-    ${ONNXRUNTIME_BUILD_DIR}/onnxruntime.lib
-)
+if(WIN32)
+    target_link_libraries(audio_processor
+        ${JNI_LIBRARIES}
+        ${ONNXRUNTIME_LIB_DIR}/onnxruntime.lib
+    )
+else()
+    target_link_libraries(audio_processor
+        ${JNI_LIBRARIES}
+        onnxruntime
+    )
+endif()
 
-# Windows 特定设置
 if(WIN32)
     target_compile_definitions(audio_processor PRIVATE _WINDOWS)
     set_target_properties(audio_processor PROPERTIES
@@ -54,24 +86,25 @@ if(WIN32)
     )
 endif()
 
-# 安装目标
 install(TARGETS audio_processor
     RUNTIME DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../resources
 )
 
-# 复制 ONNX Runtime DLL 到输出目录
-add_custom_command(TARGET audio_processor POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${ONNXRUNTIME_BUILD_DIR}/onnxruntime.dll
-        ${CMAKE_CURRENT_SOURCE_DIR}/../resources
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${ONNXRUNTIME_BUILD_DIR}/onnxruntime_providers_shared.dll
-        ${CMAKE_CURRENT_SOURCE_DIR}/../resources
-    COMMENT "复制 ONNX Runtime DLL 到资源目录"
-)
+if(WIN32)
+    add_custom_command(TARGET audio_processor POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${ONNXRUNTIME_LIB_DIR}/onnxruntime.dll
+            ${CMAKE_CURRENT_SOURCE_DIR}/../resources
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${ONNXRUNTIME_LIB_DIR}/onnxruntime_providers_shared.dll
+            ${CMAKE_CURRENT_SOURCE_DIR}/../resources
+        COMMENT "复制 ONNX Runtime DLL 到资源目录"
+    )
+endif()
 
 message(STATUS "==========================================")
 message(STATUS "audio_processor 配置完成")
-message(STATUS "ONNX Runtime 路径: ${ONNXRUNTIME_BUILD_DIR}")
+message(STATUS "平台: ${ONNXRUNTIME_PLATFORM_DIR}")
+message(STATUS "ONNX Runtime 路径: ${ONNXRUNTIME_DIR}")
 message(STATUS "输出目录: ${CMAKE_CURRENT_SOURCE_DIR}/../resources")
 message(STATUS "==========================================")
