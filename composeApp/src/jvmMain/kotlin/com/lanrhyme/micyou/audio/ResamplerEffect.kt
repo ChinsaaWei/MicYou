@@ -26,22 +26,14 @@ class ResamplerEffect : AudioEffect {
     }
     
     fun updatePlaybackRatio(queuedMs: Long): Double {
-        val targetMs = 60.0
+        val targetMs = 80.0
         val errorMs = queuedMs.toDouble() - targetMs
         
-        if (errorMs > 100) {
-            playbackRatio = 1.10
-            return playbackRatio
-        } else if (errorMs < -100) {
-            playbackRatio = 0.95
-            return playbackRatio
-        }
+        val kP = 0.0008
+        val kI = 0.000008
+        val maxAdjust = 0.03
         
-        val kP = 0.0002
-        val kI = 0.000002
-        val maxAdjust = 0.10
-        
-        var integral = (playbackRatioIntegral + errorMs).coerceIn(-10000.0, 10000.0)
+        var integral = (playbackRatioIntegral + errorMs * 0.01).coerceIn(-5000.0, 5000.0)
         playbackRatioIntegral = integral
         val adjust = (errorMs * kP + integral * kI).coerceIn(-maxAdjust, maxAdjust)
         playbackRatio = (1.0 + adjust).coerceIn(1.0 - maxAdjust, 1.0 + maxAdjust)

@@ -156,7 +156,7 @@ class AudioOutputManager {
     private fun openAndStartLine(audioFormat: AudioFormat): Boolean {
         return try {
             val bytesPerSecond = (currentSampleRate * currentChannelCount * 2).coerceAtLeast(1)
-            val bufferSizeBytes = (bytesPerSecond / 5).coerceIn(8192, 131072)
+            val bufferSizeBytes = (bytesPerSecond / 10).coerceIn(4096, 65536)
             
             outputLine?.open(audioFormat, bufferSizeBytes)
             outputLine?.start()

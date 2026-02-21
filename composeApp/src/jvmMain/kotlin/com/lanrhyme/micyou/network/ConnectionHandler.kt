@@ -146,9 +146,8 @@ class ConnectionHandler(
 
                 val audioPacket = wrapper.audioPacket?.audioPacket
                 if (audioPacket != null) {
-                    // Check for backlog to avoid latency
-                    if (input.availableForRead > length * 5) {
-                         continue
+                    if (input.availableForRead > length * 8) {
+                        continue
                     }
                     onAudioPacketReceived(audioPacket)
                 }
