@@ -5,14 +5,18 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import java.io.File
 
 actual fun loadImageBitmap(path: String): ImageBitmap? {
     return try {
         val context = AndroidContext.context ?: return null
-        val uri = Uri.parse(path)
         
-        val inputStream = context.contentResolver.openInputStream(uri)
-            ?: return null
+        val inputStream = when {
+            path.startsWith("/") -> File(path).inputStream()
+            path.startsWith("content://") -> context.contentResolver.openInputStream(Uri.parse(path))
+            path.startsWith("file://") -> File(Uri.parse(path).path ?: return null).inputStream()
+            else -> File(path).inputStream()
+        } ?: return null
         
         val bitmap = BitmapFactory.decodeStream(inputStream)
         inputStream.close()
