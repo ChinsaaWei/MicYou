@@ -1,8 +1,10 @@
 package com.lanrhyme.micyou
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColor
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
@@ -11,16 +13,11 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -39,32 +36,27 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -74,9 +66,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -85,6 +75,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lanrhyme.micyou.animation.EasingFunctions
 import com.lanrhyme.micyou.animation.rememberBreathAnimation
@@ -95,7 +87,11 @@ import com.lanrhyme.micyou.animation.rememberWaveAnimation
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import micyou.composeapp.generated.resources.Res
+import micyou.composeapp.generated.resources.icon_bluetooth
+import micyou.composeapp.generated.resources.icon_home_wifi
+import micyou.composeapp.generated.resources.icon_pip
 import micyou.composeapp.generated.resources.icon_settings
+import micyou.composeapp.generated.resources.icon_usb
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 import kotlin.math.cos
@@ -144,51 +140,7 @@ fun MobileHome(viewModel: MainViewModel) {
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { 
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            strings.appName,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        AnimatedVisibility(
-                            visible = contentVisible,
-                            enter = fadeIn(tween(300)) + slideInVertically(
-                                initialOffsetY = { -10 },
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-                            )
-                        ) {
-                            Text(
-                                "${strings.ipLabel}${platform.ipAddress}", 
-                                style = MaterialTheme.typography.bodySmall, 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    val settingsInteractionSource = remember { MutableInteractionSource() }
-                    val isSettingsPressed by settingsInteractionSource.collectIsPressedAsState()
-                    val settingsScale by animateFloatAsState(
-                        targetValue = if (isSettingsPressed) 0.85f else 1f,
-                        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy)
-                    )
-                    
-                    IconButton(
-                        onClick = { showSettings = true },
-                        interactionSource = settingsInteractionSource,
-                        modifier = Modifier.scale(settingsScale)
-                    ) {
-                        Icon(painterResource(Res.drawable.icon_settings), contentDescription = strings.settingsTitle)
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        }
+        containerColor = Color.Transparent,
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             CustomBackground(
@@ -201,12 +153,28 @@ fun MobileHome(viewModel: MainViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Header
                 AnimatedCardVisibility(
                     visible = contentVisible,
-                    delayMillis = 100
+                    delayMillis = 50
+                ) {
+                    MobileHeaderSection(
+                        platform = platform,
+                        state = state,
+                        onOpenSettings = { showSettings = true },
+                        strings = strings,
+                        cardOpacity = state.backgroundSettings.cardOpacity,
+                        hazeState = hazeState
+                    )
+                }
+
+                // Connection config
+                AnimatedCardVisibility(
+                    visible = contentVisible,
+                    delayMillis = 150
                 ) {
                     ConnectionConfigCard(
                         state = state,
@@ -218,22 +186,10 @@ fun MobileHome(viewModel: MainViewModel) {
                     )
                 }
 
+                // Main control
                 AnimatedCardVisibility(
                     visible = contentVisible,
-                    delayMillis = 200
-                ) {
-                    MuteCard(
-                        state = state,
-                        viewModel = viewModel,
-                        strings = strings,
-                        cardOpacity = state.backgroundSettings.cardOpacity,
-                        hazeState = hazeState
-                    )
-                }
-                
-                AnimatedCardVisibility(
-                    visible = contentVisible,
-                    delayMillis = 300,
+                    delayMillis = 250,
                     modifier = Modifier.weight(1f)
                 ) {
                     MainControlCard(
@@ -241,7 +197,22 @@ fun MobileHome(viewModel: MainViewModel) {
                         viewModel = viewModel,
                         audioLevel = audioLevel,
                         strings = strings,
-                        cardOpacity = state.backgroundSettings.cardOpacity
+                        cardOpacity = state.backgroundSettings.cardOpacity,
+                        hazeState = hazeState
+                    )
+                }
+
+                // Bottom bar (mute + settings)
+                AnimatedCardVisibility(
+                    visible = contentVisible,
+                    delayMillis = 350
+                ) {
+                    MobileBottomBar(
+                        state = state,
+                        viewModel = viewModel,
+                        strings = strings,
+                        cardOpacity = state.backgroundSettings.cardOpacity,
+                        hazeState = hazeState
                     )
                 }
             }
@@ -285,6 +256,104 @@ private fun AnimatedCardVisibility(
     }
 }
 
+// ==================== Header ====================
+
+@Composable
+private fun MobileHeaderSection(
+    platform: Platform,
+    state: AppUiState,
+    onOpenSettings: () -> Unit,
+    strings: AppStrings,
+    cardOpacity: Float = 1f,
+    hazeState: HazeState? = null
+) {
+    HazeSurface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
+        hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
+        modifier = Modifier.fillMaxWidth(),
+        hazeState = hazeState,
+        enabled = state.backgroundSettings.enableHazeEffect
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // App icon badge
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(Res.drawable.icon_pip),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                
+                Column {
+                    // Animated gradient title
+                    val color1 = MaterialTheme.colorScheme.primary
+                    val color2 = MaterialTheme.colorScheme.tertiary
+                    val infiniteTransition = rememberInfiniteTransition(label = "MobileTitleColor")
+                    val animatedColor by infiniteTransition.animateColor(
+                        initialValue = color1,
+                        targetValue = color2,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(4000, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "Color"
+                    )
+                    
+                    Text(
+                        strings.appName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = animatedColor
+                    )
+                    Text(
+                        "${strings.ipLabel}${platform.ipAddress}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            val settingsInteractionSource = remember { MutableInteractionSource() }
+            val isSettingsPressed by settingsInteractionSource.collectIsPressedAsState()
+            val settingsScale by animateFloatAsState(
+                targetValue = if (isSettingsPressed) 0.85f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy)
+            )
+            
+            IconButton(
+                onClick = onOpenSettings,
+                interactionSource = settingsInteractionSource,
+                modifier = Modifier.size(32.dp).scale(settingsScale)
+            ) {
+                Icon(
+                    painterResource(Res.drawable.icon_settings),
+                    contentDescription = strings.settingsTitle,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+// ==================== Connection Config ====================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConnectionConfigCard(
@@ -295,249 +364,116 @@ private fun ConnectionConfigCard(
     cardOpacity: Float = 1f,
     hazeState: HazeState? = null
 ) {
-    if (state.backgroundSettings.enableHazeEffect && hazeState != null) {
-        HazeCard(
-            hazeState = hazeState,
-            enabled = true,
-            hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-        ) {
-            ConnectionConfigCardContent(
-                state = state,
-                viewModel = viewModel,
-                isClient = isClient,
-                strings = strings
-            )
-        }
-    } else {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity)
-            ),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            ConnectionConfigCardContent(
-                state = state,
-                viewModel = viewModel,
-                isClient = isClient,
-                strings = strings
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ConnectionConfigCardContent(
-    state: AppUiState,
-    viewModel: MainViewModel,
-    isClient: Boolean,
-    strings: AppStrings
-) {
-    Column(
-        modifier = Modifier.padding(20.dp).fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    HazeSurface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
+        hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
+        modifier = Modifier.fillMaxWidth(),
+        hazeState = hazeState,
+        enabled = state.backgroundSettings.enableHazeEffect
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            modifier = Modifier.padding(14.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Mode label
             Text(
                 strings.connectionModeLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            
+            // Mode selector - icon style like Desktop
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 val modes = listOf(
-                    ConnectionMode.Wifi to strings.modeWifi,
-                    ConnectionMode.Bluetooth to strings.modeBluetooth,
-                    ConnectionMode.Usb to strings.modeUsb
+                    ConnectionMode.Wifi to (strings.modeWifi to painterResource(Res.drawable.icon_home_wifi)),
+                    ConnectionMode.Bluetooth to (strings.modeBluetooth to painterResource(Res.drawable.icon_bluetooth)),
+                    ConnectionMode.Usb to (strings.modeUsb to painterResource(Res.drawable.icon_usb))
                 )
                 
-                modes.forEachIndexed { index, (mode, label) ->
-                    var chipVisible by remember { mutableStateOf(false) }
+                modes.forEach { (mode, info) ->
+                    val (label, icon) = info
+                    val isSelected = state.mode == mode
                     
-                    LaunchedEffect(Unit) {
-                        delay(100L + index * 50L)
-                        chipVisible = true
-                    }
+                    val bgColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        animationSpec = tween(200)
+                    )
+                    val contentColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = tween(200)
+                    )
                     
-                    AnimatedVisibility(
-                        visible = chipVisible,
-                        enter = fadeIn(tween(200)) + slideInHorizontally(
-                            initialOffsetX = { -20 },
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-                        ) + scaleIn(initialScale = 0.8f),
-                        exit = fadeOut(tween(150)) + slideOutHorizontally { 20 } + scaleOut(targetScale = 0.8f),
-                        modifier = Modifier.weight(1f)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = bgColor,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clickable { viewModel.setMode(mode) }
                     ) {
-                        val interactionSource = remember { MutableInteractionSource() }
-                        val isPressed by interactionSource.collectIsPressedAsState()
-                        val chipScale by animateFloatAsState(
-                            targetValue = if (isPressed) 0.92f else 1f,
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy)
-                        )
-                        
-                        FilterChip(
-                            selected = state.mode == mode,
-                            onClick = { viewModel.setMode(mode) },
-                            interactionSource = interactionSource,
-                            label = { Text(label) },
-                            leadingIcon = { 
-                                if (state.mode == mode) {
-                                    Icon(
-                                        Icons.Filled.Check,
-                                        null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(icon, null, tint = contentColor, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = contentColor,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            // IP/Port input
+            AnimatedVisibility(
+                visible = isClient && state.mode != ConnectionMode.Usb || state.mode != ConnectionMode.Bluetooth,
+                enter = fadeIn(tween(300)) + expandVertically(),
+                exit = fadeOut(tween(200)) + shrinkVertically()
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (isClient && state.mode != ConnectionMode.Usb) {
+                        ShardTextField(
+                            value = when (state.mode) {
+                                ConnectionMode.Bluetooth -> state.bluetoothAddress
+                                else -> state.ipAddress
                             },
-                            modifier = Modifier.scale(chipScale),
-                            shape = CircleShape
+                            onValueChange = { viewModel.setIp(it) },
+                            label = when (state.mode) {
+                                ConnectionMode.Bluetooth -> strings.bluetoothAddressLabel
+                                else -> strings.targetIpLabel
+                            },
+                            modifier = if (state.mode == ConnectionMode.Bluetooth) Modifier.fillMaxWidth()
+                            else Modifier.weight(1f),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    if (state.mode != ConnectionMode.Bluetooth) {
+                        ShardTextField(
+                            value = state.port,
+                            onValueChange = { viewModel.setPort(it) },
+                            label = strings.portLabel,
+                            modifier = if (isClient && state.mode != ConnectionMode.Usb)
+                                Modifier.width(100.dp) else Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodySmall
                         )
                     }
                 }
             }
         }
-
-        AnimatedVisibility(
-            visible = isClient && state.mode != ConnectionMode.Usb || state.mode != ConnectionMode.Bluetooth,
-            enter = fadeIn(tween(300)) + slideInVertically(
-                initialOffsetY = { 15 },
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-            ) + scaleIn(initialScale = 0.95f),
-            exit = fadeOut(tween(200)) + slideOutVertically { 10 } + scaleOut(targetScale = 0.95f)
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (isClient && state.mode != ConnectionMode.Usb) {
-                    OutlinedTextField(
-                        value = when (state.mode) {
-                            ConnectionMode.Bluetooth -> state.bluetoothAddress
-                            else -> state.ipAddress
-                        },
-                        onValueChange = { viewModel.setIp(it) },
-                        label = {
-                            Text(
-                                when (state.mode) {
-                                    ConnectionMode.Bluetooth -> strings.bluetoothAddressLabel
-                                    else -> strings.targetIpLabel
-                                }
-                            )
-                        },
-                        modifier = if (state.mode == ConnectionMode.Bluetooth) Modifier.fillMaxWidth() else Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        textStyle = MaterialTheme.typography.bodyMedium
-                    )
-                }
-                if (state.mode != ConnectionMode.Bluetooth) {
-                    OutlinedTextField(
-                        value = state.port,
-                        onValueChange = { viewModel.setPort(it) },
-                        label = { Text(strings.portLabel) },
-                        modifier = if (isClient && state.mode != ConnectionMode.Usb) Modifier.width(100.dp) else Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        textStyle = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-        }
     }
 }
 
-@Composable
-private fun MuteCard(
-    state: AppUiState,
-    viewModel: MainViewModel,
-    strings: AppStrings,
-    cardOpacity: Float = 1f,
-    hazeState: HazeState? = null
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val cardScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy)
-    )
-    
-    val cardColor by animateColorAsState(
-        targetValue = if (state.isMuted)
-            MaterialTheme.colorScheme.errorContainer
-        else
-            MaterialTheme.colorScheme.surfaceContainer,
-        animationSpec = tween(300, easing = EasingFunctions.EaseInOutCubic)
-    )
-    
-    if (state.backgroundSettings.enableHazeEffect && hazeState != null) {
-        HazeCard(
-            hazeState = hazeState,
-            enabled = true,
-            hazeColor = cardColor.copy(alpha = cardOpacity * 0.7f),
-            modifier = Modifier
-                .fillMaxWidth()
-                .scale(cardScale)
-                .clip(RoundedCornerShape(24.dp))
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { viewModel.toggleMute() }
-        ) {
-            MuteCardContent(state = state, strings = strings)
-        }
-    } else {
-        Card(
-            onClick = { viewModel.toggleMute() },
-            interactionSource = interactionSource,
-            modifier = Modifier
-                .fillMaxWidth()
-                .scale(cardScale),
-            colors = CardDefaults.cardColors(containerColor = cardColor.copy(alpha = cardOpacity)),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            MuteCardContent(state = state, strings = strings)
-        }
-    }
-}
-
-@Composable
-private fun MuteCardContent(
-    state: AppUiState,
-    strings: AppStrings
-) {
-    Row(
-        modifier = Modifier.padding(20.dp).fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val iconScale by animateFloatAsState(
-            targetValue = if (state.isMuted) 1.1f else 1f,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-        )
-        
-        Icon(
-            if (state.isMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
-            contentDescription = null,
-            modifier = Modifier.size(28.dp).scale(iconScale),
-            tint = if (state.isMuted)
-                MaterialTheme.colorScheme.onErrorContainer
-            else
-                MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = if (state.isMuted) strings.unmuteLabel else strings.muteLabel,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (state.isMuted)
-                MaterialTheme.colorScheme.onErrorContainer
-            else
-                MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
+// ==================== Main Control ====================
 
 @Composable
 private fun MainControlCard(
@@ -545,47 +481,120 @@ private fun MainControlCard(
     viewModel: MainViewModel,
     audioLevel: Float,
     strings: AppStrings,
-    cardOpacity: Float = 1f
+    cardOpacity: Float = 1f,
+    hazeState: HazeState? = null
 ) {
-    Card(
+    val isRunning = state.streamState == StreamState.Streaming
+    val isConnecting = state.streamState == StreamState.Connecting
+
+    HazeSurface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f * cardOpacity),
+        hazeColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f * cardOpacity * 0.7f),
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity)
-        ),
-        shape = RoundedCornerShape(32.dp)
+        hazeState = hazeState,
+        enabled = state.backgroundSettings.enableHazeEffect
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            val isRunning = state.streamState == StreamState.Streaming
-            val isConnecting = state.streamState == StreamState.Connecting
-            
-            Box(
+            // Status indicator at top
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 24.dp)
+                    .padding(top = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val (statusColor, statusText) = when(state.streamState) {
-                    StreamState.Idle -> MaterialTheme.colorScheme.onSurfaceVariant to strings.clickToStart
-                    StreamState.Connecting -> MaterialTheme.colorScheme.tertiary to strings.statusConnecting
-                    StreamState.Streaming -> MaterialTheme.colorScheme.primary to strings.statusStreaming
-                    StreamState.Error -> MaterialTheme.colorScheme.error to (state.errorMessage ?: strings.statusError)
-                }
-                
-                val statusScale = rememberPulseAnimation(0.97f, 1.03f, 1500)
+                // Status icon
+                val statusColor by animateColorAsState(
+                    targetValue = when (state.streamState) {
+                        StreamState.Idle -> MaterialTheme.colorScheme.onSurfaceVariant
+                        StreamState.Connecting -> MaterialTheme.colorScheme.tertiary
+                        StreamState.Streaming -> MaterialTheme.colorScheme.primary
+                        StreamState.Error -> MaterialTheme.colorScheme.error
+                    },
+                    animationSpec = tween(300)
+                )
                 
                 Surface(
-                    color = statusColor.copy(alpha = 0.1f),
-                    contentColor = statusColor,
-                    shape = CircleShape,
-                    modifier = Modifier.scale(statusScale)
+                    shape = RoundedCornerShape(12.dp),
+                    color = statusColor.copy(alpha = 0.12f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            when (state.streamState) {
+                                StreamState.Idle -> Icons.Rounded.Info
+                                StreamState.Connecting -> Icons.Rounded.HourglassTop
+                                StreamState.Streaming -> Icons.Rounded.CheckCircle
+                                StreamState.Error -> Icons.Rounded.Error
+                            },
+                            contentDescription = null,
+                            tint = statusColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                
+                // Status text
+                val statusText = when (state.streamState) {
+                    StreamState.Idle -> strings.clickToStart
+                    StreamState.Connecting -> strings.statusConnecting
+                    StreamState.Streaming -> strings.statusStreaming
+                    StreamState.Error -> state.errorMessage ?: strings.statusError
+                }
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = statusText,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.labelLarge
+                        statusText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = statusColor,
+                        fontWeight = FontWeight.Medium
                     )
+                    if (isRunning) {
+                        Surface(
+                            shape = RoundedCornerShape(3.dp),
+                            color = statusColor
+                        ) {
+                            Text(
+                                "LIVE",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+                
+                // Error message
+                AnimatedVisibility(
+                    visible = state.streamState == StreamState.Error && state.errorMessage != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    if (state.errorMessage != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        ) {
+                            Text(
+                                state.errorMessage ?: "",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(8.dp),
+                                maxLines = 3,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                 }
             }
 
+            // Audio visualizer
             if (isRunning) {
                 MobileAudioVisualizer(
                     modifier = Modifier.size(240.dp),
@@ -595,6 +604,7 @@ private fun MainControlCard(
                 )
             }
             
+            // Connecting animation
             if (isConnecting) {
                 MobileConnectingAnimation(
                     modifier = Modifier.size(200.dp),
@@ -602,6 +612,7 @@ private fun MainControlCard(
                 )
             }
             
+            // Main button
             MobileMainButton(
                 isRunning = isRunning,
                 isConnecting = isConnecting,
@@ -611,6 +622,109 @@ private fun MainControlCard(
         }
     }
 }
+
+// ==================== Bottom Bar ====================
+
+@Composable
+private fun MobileBottomBar(
+    state: AppUiState,
+    viewModel: MainViewModel,
+    strings: AppStrings,
+    cardOpacity: Float = 1f,
+    hazeState: HazeState? = null
+) {
+    HazeSurface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity),
+        hazeColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = cardOpacity * 0.7f),
+        modifier = Modifier.fillMaxWidth(),
+        hazeState = hazeState,
+        enabled = state.backgroundSettings.enableHazeEffect
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Mute button (compact, like Desktop BottomBar)
+            MobileMuteButton(
+                isMuted = state.isMuted,
+                onToggle = { viewModel.toggleMute() },
+                strings = strings
+            )
+            
+            // Stream state indicator dot
+            val dotColor by animateColorAsState(
+                targetValue = when (state.streamState) {
+                    StreamState.Idle -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    StreamState.Connecting -> MaterialTheme.colorScheme.tertiary
+                    StreamState.Streaming -> MaterialTheme.colorScheme.primary
+                    StreamState.Error -> MaterialTheme.colorScheme.error
+                },
+                animationSpec = tween(300)
+            )
+            val dotPulse = if (state.streamState == StreamState.Streaming)
+                rememberPulseAnimation(0.8f, 1.2f, 1200) else 1f
+            
+            Surface(
+                shape = CircleShape,
+                color = dotColor,
+                modifier = Modifier.size(8.dp).scale(dotPulse)
+            ) {}
+        }
+    }
+}
+
+@Composable
+private fun MobileMuteButton(
+    isMuted: Boolean,
+    onToggle: () -> Unit,
+    strings: AppStrings
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.9f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy)
+    )
+    
+    val bgColor by animateColorAsState(
+        targetValue = if (isMuted) MaterialTheme.colorScheme.errorContainer
+        else MaterialTheme.colorScheme.surfaceContainerHighest,
+        animationSpec = tween(200)
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isMuted) MaterialTheme.colorScheme.onErrorContainer
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(200)
+    )
+    
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = bgColor,
+        modifier = Modifier.scale(scale).clickable(interactionSource, null) { onToggle() }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                if (isMuted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                if (isMuted) strings.unmuteLabel else strings.muteLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = contentColor
+            )
+        }
+    }
+}
+
+// ==================== Audio Visualizers ====================
 
 @Composable
 private fun MobileAudioVisualizer(
@@ -947,6 +1061,8 @@ private fun MobileParticlesVisualizer(
     }
 }
 
+// ==================== Connecting Animation ====================
+
 @Composable
 private fun MobileConnectingAnimation(
     modifier: Modifier = Modifier,
@@ -976,6 +1092,8 @@ private fun MobileConnectingAnimation(
     }
 }
 
+// ==================== Main Button ====================
+
 @Composable
 private fun MobileMainButton(
     isRunning: Boolean,
@@ -984,7 +1102,7 @@ private fun MobileMainButton(
     strings: AppStrings
 ) {
     val buttonSize by animateDpAsState(
-        targetValue = if (isRunning) 115.dp else 95.dp,
+        targetValue = if (isRunning) 100.dp else 80.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -994,7 +1112,7 @@ private fun MobileMainButton(
     val buttonColor by animateColorAsState(
         targetValue = when {
             isRunning -> MaterialTheme.colorScheme.error
-            isConnecting -> MaterialTheme.colorScheme.secondary
+            isConnecting -> MaterialTheme.colorScheme.tertiary
             else -> MaterialTheme.colorScheme.primary
         },
         animationSpec = tween(400, easing = EasingFunctions.EaseInOutCubic)
@@ -1008,6 +1126,15 @@ private fun MobileMainButton(
             animation = tween(1000, easing = LinearEasing)
         ),
         label = "MobileSpinner"
+    )
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.55f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EasingFunctions.EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "BtnGlow"
     )
     
     val pulseScale = if (isRunning) rememberPulseAnimation(0.96f, 1.04f, 900) else 1f
@@ -1025,16 +1152,23 @@ private fun MobileMainButton(
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(buttonSize + 32.dp)
+            .size(buttonSize + 24.dp)
             .graphicsLayer {
                 scaleX = pressScale * pulseScale
                 scaleY = pressScale * pulseScale
             }
     ) {
+        // Glow ring behind button
+        if (isRunning) {
+            Canvas(modifier = Modifier.size(buttonSize + 20.dp)) {
+                drawCircle(buttonColor.copy(alpha = glowAlpha * 0.35f), size.width / 2)
+            }
+        }
+        
         if (isRunning || isConnecting) {
             Box(
                 modifier = Modifier
-                    .size(buttonSize + 32.dp)
+                    .size(buttonSize + 24.dp)
                     .drawBehind {
                         drawCircle(
                             brush = Brush.radialGradient(
@@ -1061,11 +1195,11 @@ private fun MobileMainButton(
             },
             interactionSource = interactionSource,
             containerColor = buttonColor,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
+            contentColor = Color.White,
             modifier = Modifier.size(buttonSize),
             shape = CircleShape,
             elevation = FloatingActionButtonDefaults.elevation(
-                defaultElevation = if (isPressed) 2.dp else 10.dp,
+                defaultElevation = if (isPressed) 2.dp else 8.dp,
                 pressedElevation = 2.dp
             )
         ) {
@@ -1074,14 +1208,14 @@ private fun MobileMainButton(
                     Icons.Filled.Refresh,
                     strings.statusConnecting,
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(36.dp)
                         .graphicsLayer { rotationZ = angle }
                 )
             } else {
                 Icon(
                     if (isRunning) Icons.Filled.LinkOff else Icons.Filled.Link,
                     contentDescription = if (isRunning) strings.stop else strings.start,
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(36.dp)
                 )
             }
         }

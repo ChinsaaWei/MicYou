@@ -30,7 +30,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -373,7 +373,7 @@ fun ColorPreview(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (isEditing && onColorChange != null) {
-                    OutlinedTextField(
+                    ShardTextField(
                         value = hexInput,
                         onValueChange = { newValue ->
                             hexInput = newValue.uppercase()
@@ -401,7 +401,7 @@ fun ColorPreview(
                                 }
                             }
                         ),
-                        label = { Text("HEX", style = MaterialTheme.typography.labelSmall) },
+                        label = "HEX",
                         supportingText = if (inputError) {
                             { Text("格式: #RRGGBB", style = MaterialTheme.typography.labelSmall) }
                         } else null

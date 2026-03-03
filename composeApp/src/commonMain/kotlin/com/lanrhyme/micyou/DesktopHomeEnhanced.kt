@@ -66,7 +66,7 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -621,12 +621,11 @@ private fun PortCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(strings.portLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedTextField(
+            ShardTextField(
                 value = port,
                 onValueChange = onPortChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
                 textStyle = MaterialTheme.typography.bodySmall
             )
         }
@@ -1329,7 +1328,12 @@ private fun BottomBar(
             )
             
             IconButton(onClick = onOpenSettings, modifier = Modifier.size(32.dp)) {
-                Icon(painter = painterResource(Res.drawable.icon_settings), strings.settingsTitle, modifier = Modifier.size(18.dp))
+                Icon(
+                    painter = painterResource(Res.drawable.icon_settings),
+                    contentDescription = strings.settingsTitle,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

@@ -500,14 +500,13 @@ private fun NetworkConfigCard(
                     enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.9f),
                     exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.9f)
                 ) {
-                    OutlinedTextField(
+                    ShardTextField(
                         value = state.port,
                         onValueChange = { viewModel.setPort(it) },
-                        label = { Text(strings.portLabel) },
+                        label = strings.portLabel,
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = MaterialTheme.typography.bodySmall,
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp)
+                        singleLine = true
                     )
                 }
             }
@@ -1271,8 +1270,9 @@ private fun StatusControlPanel(
                         content = {
                             Icon(
                                 painter = painterResource(Res.drawable.icon_settings),
-                                strings.settingsTitle,
-                                modifier = Modifier.size(20.dp)
+                                contentDescription = strings.settingsTitle,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     )
